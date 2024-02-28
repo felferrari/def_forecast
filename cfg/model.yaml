@@ -1,0 +1,11 @@
+class_path: models.models.Model1
+init_args:
+  criterion:
+    class_path: torch.nn.MSELoss
+    init_args:
+      reduction: none
+  in_channels: &in_channels 2
+  optimizer: 
+    optimizer: torch.optim.Adam
+    parameters:
+      lr: 2e-5
