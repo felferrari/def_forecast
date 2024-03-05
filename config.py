@@ -51,7 +51,7 @@ experiments = {
         'criterion': torch.nn.MSELoss(reduction='none'),
         'optimizer' : torch.optim.Adam,
         'optimizer_params': {
-            'lr': 1e-5
+            'lr': 1e-6
         },
         'data_module': image_data_module,
         'save_pred_callback': save_pred_callback

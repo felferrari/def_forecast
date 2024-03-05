@@ -19,7 +19,7 @@ class ModelModule(L.LightningModule):
    
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, mask = batch
-        y_hat = self.model(x)
+        y_hat = self.model(x) 
         #loss = F.mse_loss(y_hat, y)
         loss = self.criterion(y_hat, y)
         loss = (loss*mask).sum() / mask.sum()
@@ -61,9 +61,9 @@ class ModelModule(L.LightningModule):
         
     def predict_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, mask, idx, band_i = batch
-        y_pred = self.model(x)
+        y_pred = self.model(x) 
         y_pred [ mask == 0] = 0
-        return y_pred
+        return y_pred 
         
 
     def configure_optimizers(self):

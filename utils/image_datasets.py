@@ -221,7 +221,6 @@ class PatchPredictionDataset(Dataset):
         ref = self.padded_def_data[patch_idx][:,:,band_date_i]
 
         data = self.padded_def_data[patch_idx][:,:,band_date_i-self.n_prev: band_date_i] / 100
-        
            
         data = rearrange(data, 'h w c -> c h w')
         ref = rearrange(ref, 'h w -> 1 h w')

@@ -6,7 +6,7 @@ class Resunet(nn.Module):
         super().__init__(*args, **kwargs)
         self.encoder = ResUnetEncoder(in_depth, depths)
         self.decoder = ResUnetDecoder(depths)
-        self.classifier = ResUnetRegressionClassifier(depths, 1)
+        self.classifier = ResUnetRegressionClassifier(depths, 1, nn.ReLU)
         
     def forward(self, x):
         x = self.encoder(x)

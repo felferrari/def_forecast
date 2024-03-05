@@ -165,7 +165,13 @@ def predict(
         ref_data = load_ml_image(qd_paths_dict)[:,:,-22:]
         #path_to_save = f'experiments/exp_0/images'
         mask = load_sb_image(paths.path_to_mask)
-        evaluate_results(ref_data, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
+        mse, mae, norm_mse, norm_mae = evaluate_results(ref_data, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
+        mlflow.log_metrics({
+            'predicted_mse': mse,
+            'predicted_mae': mae,
+            'normalized_predicted_mse': norm_mse,
+            'normalized_predicted_mae': norm_mae,
+        })
     
   
 

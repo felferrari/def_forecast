@@ -235,38 +235,46 @@ def count_parameters(model):
     text+=f'Total: {total_params:,}\n'
     return total_params
 
+def evaluate_bins(ref, pred, bins, metric):
+    bin_value_0 = bins[0]
+    ref_bin = ref[ref == bin_value_0]
+    pred_bin = pred[ref == bin_value_0]
+    res__dict = {
+        str(bins[0]): metric(ref_bin, pred_bin)
+    }
+    for i, bin_value_end in enumerate(bins):
+        if i == 0:
+            continue
+        ref_bin = ref[np.logical_and(ref > bin_value_0, ref <= bin_value_end)]
+        pred_bin = pred[np.logical_and(ref > bin_value_0, ref <= bin_value_end)]
+        res__dict [f'{bin_value_0}-{bin_value_end}'] = metric(ref_bin, pred_bin)
+        bin_value_0 = bin_value_end
+    return res__dict
 
 def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     #evaluate metrics
+    original_shape = reference.shape[:2]
     ref_flatten_mask = rearrange(reference, 'h w c -> (h w) c')[mask.flatten() == 1]
     pred_flatten_mask = rearrange(predictions, 'h w c -> (h w) c')[mask.flatten() == 1]
     mse = mean_squared_error(ref_flatten_mask, pred_flatten_mask)
     mae = mean_absolute_error(ref_flatten_mask, pred_flatten_mask)
     
-    #metrics with bins
-    #mse_bins, mae_bins = [], []
-    bin_value_0 = bins[0]
-    ref_bin = ref_flatten_mask[ref_flatten_mask == bin_value_0]
-    pred_bin = pred_flatten_mask[ref_flatten_mask == bin_value_0]
-    #mse_bins.append(mean_squared_error(ref_bin, pred_bin))
-    #mae_bins.append(mean_absolute_error(ref_bin, pred_bin))
+    fig = plt.figure()
+    plt.hist(ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
+    plt.title('Reference Histogram')
+    mlflow.log_figure(fig, f'figures/hist_reference.png')
+    plt.close(fig)
     
-    mse__dict = {
-        str(bins[0]): mean_squared_error(ref_bin, pred_bin)
-    }
-    mae__dict = {
-        str(bins[0]): mean_absolute_error(ref_bin, pred_bin)
-    }
-    for i, bin_value_end in enumerate(bins):
-        if i == 0:
-            continue
-        ref_bin = ref_flatten_mask[np.logical_and(ref_flatten_mask > bin_value_0, ref_flatten_mask <= bin_value_end)]
-        pred_bin = pred_flatten_mask[np.logical_and(ref_flatten_mask > bin_value_0, ref_flatten_mask <= bin_value_end)]
-        #mse_bins.append(mean_squared_error(ref_bin, pred_bin))
-        #mae_bins.append(mean_absolute_error(ref_bin, pred_bin))
-        
-        mse__dict [f'{bins[i-1]}-{bin_value_end}'] = mean_squared_error(ref_bin, pred_bin)
-        mae__dict [f'{bins[i-1]}-{bin_value_end}'] = mean_absolute_error(ref_bin, pred_bin)
+    fig = plt.figure()
+    plt.hist(pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
+    plt.title('Prediction Histogram')
+    mlflow.log_figure(fig, f'figures/hist_prediction.png')
+    plt.close(fig)
+    
+    
+    #metrics with bins
+    mse__dict = evaluate_bins(ref_flatten_mask, pred_flatten_mask, bins, mean_squared_error)
+    mae__dict = evaluate_bins(ref_flatten_mask, pred_flatten_mask, bins, mean_absolute_error)
     
     
     fig = plt.figure()
@@ -275,7 +283,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xlabel('bins values (Km2)')
     plt.ylabel('MSE')
     mlflow.log_figure(fig, f'figures/bar_mse.png')
-    plt.close()
+    plt.close(fig)
     
     fig = plt.figure()
     plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
@@ -283,18 +291,39 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xlabel('bins values (Km2)')
     plt.ylabel('MAE')
     mlflow.log_figure(fig, f'figures/bar_mae.png')
-    plt.close()
+    plt.close(fig)
     
-    #metrics for each lag
+    #metrics for each lag and normalization
     mse_list, mae_list = [],[]
-    for i in range(reference.shape[2]):
+    norm_mse_list, norm_mae_list = [],[]
+    norm_ref, norm_preds = np.empty_like(reference), np.empty_like(predictions)
+    for i in range(ref_flatten_mask.shape[-1]):
+        ref_i = ref_flatten_mask[:,i]
+        pred_i = pred_flatten_mask[:,i]
+        
+        mse_list.append(mean_squared_error(ref_i, pred_i))
+        mae_list.append(mean_absolute_error(ref_i, pred_i))
+        
         ref_i = reference[:,:,i]
         pred_i = predictions[:,:,i]
         
-        if ref_i.max() > 0:
-            ref_i_norm = (ref_i - ref_i.min())/ref_i.max()
-        if pred_i.max() > 0:
-            pred_i_norm = (pred_i - pred_i.min())/pred_i.max()
+        ref_i_flatten_mask = ref_i.flatten()[mask.flatten() == 1]
+        pred_i_flatten_mask = pred_i.flatten()[mask.flatten() == 1]
+        
+        if ref_i_flatten_mask.max() != ref_i_flatten_mask.min():
+            ref_i_norm = (ref_i - ref_i_flatten_mask.min())/(ref_i_flatten_mask.max() - ref_i_flatten_mask.min())
+        else:
+            ref_i_norm = np.zeros_like(ref_i)
+        if pred_i_flatten_mask.max() != pred_i_flatten_mask.min():
+            pred_i_norm = (pred_i - pred_i_flatten_mask.min())/(pred_i_flatten_mask.max() - pred_i_flatten_mask.min())
+        else:
+            pred_i_norm = np.zeros_like(pred_i)
+            
+        ref_i_norm[mask == 0] = 0
+        pred_i_norm[mask == 0] = 0
+            
+        norm_ref[:,:,i] = ref_i_norm
+        norm_preds[:,:,i] = pred_i_norm
         
         fig, axarr = plt.subplots(1,2)
         im_0 = axarr[0].imshow(ref_i_norm, cmap = 'gray')
@@ -310,34 +339,89 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
         fig.colorbar(im_1, cax=cax, orientation='vertical')
         mlflow.log_figure(fig, f'dual/time_{i:02d}.png')
         #plt.savefig(path_to_save / f'result_{i}.jpg')
-        plt.close()
+        plt.close(fig)
         
         
-        fig, axarr = plt.subplots(1,1)
-        single_image = np.stack([ref_i_norm, pred_i_norm, 0.9*(1-mask)], axis=-1)
+        fig = plt.figure()
+        single_image = np.stack([ref_i_norm, pred_i_norm, 0.5*(1-mask)], axis=-1)
         plt.imshow(single_image)
         plt.axis("off")
         mlflow.log_figure(fig, f'single/time_{i:02d}.png')
         #plt.savefig(path_to_save / f'single_{i}.jpg')
-        plt.close()
+        plt.close(fig)
 
         
-        ref_i_norm_flatten_masked = ref_i_norm
-        mse_list.append(mean_squared_error(ref_i_norm, pred_i_norm))
-        mae_list.append(mean_absolute_error(ref_i_norm, pred_i_norm))
+        #ref_i_norm_flatten_masked = ref_i_norm
+        ref_i_flatten_mask = ref_i_norm.flatten()[mask.flatten() == 1]
+        pred_i_flatten_mask = pred_i_norm.flatten()[mask.flatten() == 1]
         
-    fig, axarr = plt.subplots(1,1)
-    plt.bar(mse_list)
-    plt.ylim([0,0.01])
+        norm_mse_list.append(mean_squared_error(ref_i_flatten_mask, pred_i_flatten_mask))
+        norm_mae_list.append(mean_absolute_error(ref_i_flatten_mask, pred_i_flatten_mask))
+        
+    norm_ref_flatten_mask = rearrange(norm_ref, 'h w c -> (h w) c')[mask.flatten() == 1]
+    norm_pred_flatten_mask = rearrange(norm_preds, 'h w c -> (h w) c')[mask.flatten() == 1]
+    
+    norm_mse = mean_squared_error(norm_ref_flatten_mask, norm_pred_flatten_mask)
+    norm_mae = mean_absolute_error(norm_ref_flatten_mask, norm_pred_flatten_mask)
+    
+    fig = plt.figure()
+    plt.hist(norm_ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
+    plt.title('Normalized Reference Histogram')
+    mlflow.log_figure(fig, f'figures/hist_norm_reference.png')
+    plt.close(fig)
+    
+    fig = plt.figure()
+    plt.hist(norm_pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
+    plt.title('Normalized Prediction Histogram')
+    mlflow.log_figure(fig, f'figures/hist_norm_prediction.png')
+    plt.close(fig)
+    
+    
+    
+    fig = plt.figure(figsize=(12, 5))
+    plt.bar(range(len(mse_list)), mse_list)
+    plt.ylim([0,0.004])
     plt.ylabel('MSE')
+    plt.xticks(range(len(mse_list)))
     plt.xlabel('Time')
+    plt.title('Original MSE')
     mlflow.log_figure(fig, f'figures/mse_time.png')
     #plt.savefig(path_to_save / 'mse_time.jpg')
-    plt.close()
+    plt.close(fig)
     
-    fig, axarr = plt.subplots(1,1)
-    plt.plot(mae_list)
-    plt.ylim([0,0.025])
+    fig = plt.figure(figsize=(12, 5))
+    #plt.plot(mse_list)
+    plt.bar(range(len(mae_list)), mae_list)
+    plt.ylim([0,0.02])
+    plt.ylabel('MAE')
+    plt.xticks(range(len(mae_list)))
+    plt.xlabel('Time')
+    plt.title('Original MAE')
     mlflow.log_figure(fig, f'figures/mae_time.png')
-    #plt.savefig(path_to_save / 'mae_time.jpg')
-    plt.close()
+    #plt.savefig(path_to_save / 'mse_time.jpg')
+    plt.close(fig)
+    
+    fig = plt.figure(figsize=(12, 5))
+    plt.bar(range(len(norm_mse_list)), norm_mse_list)
+    plt.ylim([0,0.004])
+    plt.ylabel('MSE')
+    plt.xticks(range(len(norm_mse_list)))
+    plt.xlabel('Time')
+    plt.title('Normalized MSE')
+    mlflow.log_figure(fig, f'figures/norm_mse_time.png')
+    #plt.savefig(path_to_save / 'mse_time.jpg')
+    plt.close(fig)
+    
+    fig = plt.figure(figsize=(12, 5))
+    #plt.plot(mse_list)
+    plt.bar(range(len(norm_mae_list)), norm_mae_list)
+    plt.ylim([0,0.02])
+    plt.ylabel('MAE')
+    plt.xticks(range(len(norm_mae_list)))
+    plt.xlabel('Time')
+    plt.title('Normalized MAE')
+    mlflow.log_figure(fig, f'figures/norm_mae_time.png')
+    #plt.savefig(path_to_save / 'mse_time.jpg')
+    plt.close(fig)
+    
+    return mse, mae, norm_mse, norm_mae
