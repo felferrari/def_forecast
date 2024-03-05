@@ -4,20 +4,22 @@ from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import BasePredictionWriter
 from pathlib import Path
 import numpy as np
-import config
+import paths
 from utils.ops import load_sb_image, save_geotiff
 from einops import rearrange
-
+import mlflow
+import tempfile
+import uuid
 
 class SavePrediction(BasePredictionWriter):
-    def __init__(self, tiff_path, n_prev, patch_size, test_times, border_removal,**kwargs):
+    def __init__(self, n_prev, patch_size, test_times, border_removal, save_tiff = False, **kwargs):
         super().__init__(write_interval = 'batch_and_epoch')
-        self.tiff_path = tiff_path
         self.patch_size = patch_size
         self.n_prev = n_prev
         self.border_removal = border_removal
+        self.save_tiff = save_tiff
         
-        mask = load_sb_image(config.path_to_mask)
+        mask = load_sb_image(paths.path_to_mask)
         shape = mask.shape
         self.padded_shape = (shape[0] + 2*patch_size, shape[1] + 2*patch_size, test_times - n_prev)
         
@@ -43,4 +45,8 @@ class SavePrediction(BasePredictionWriter):
         final_image = np.nan_to_num(final_image, nan=0)
         final_image = rearrange (final_image, '(h w) c -> h w c', h = self.padded_shape[0], w = self.padded_shape[1])
         self.final_image = final_image[self.patch_size : -self.patch_size, self.patch_size : -self.patch_size]
-        save_geotiff(config.path_to_mask, self.tiff_path, self.final_image, 'float')
+        if self.save_tiff:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
+                save_geotiff(paths.path_to_mask, tmp_file, self.final_image, 'float')
+                mlflow.log_artifact(tmp_file, 'prediction')

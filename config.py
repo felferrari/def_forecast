@@ -1,32 +1,60 @@
-from pathlib import Path
+from models.models import Resunet
+from utils.image_datasets import ImageDataModule
+import torch
+from utils.callbacks import SavePrediction
 
-#PATHS
-base_data_path = Path(r'/home/felferrari/projects/def_forecast/data')
-path_to_mask = base_data_path / r'tiff/mask.tif'
-path_to_data = {
-    'mask': base_data_path / r'tiff/mask.tif',
-    'def_data':  base_data_path / r'tiff/ArCS.tif',
-    'quinz' : {
-        'DeAr': base_data_path / r'tiff/DeAr.tif',
-        'Monthly': base_data_path / r'tiff/monthly.tif',
-        'Forest': base_data_path / r'tiff/flor.tif',
-        'Cloud': base_data_path / r'tiff/nv.tif',
-    },
-    'atemporal' : {
-        'DistPorts' : base_data_path / r'tiff/distport.tif',
-        'DistRios' : base_data_path / r'tiff/distrios.tif',
-        'DistUrbs' : base_data_path / r'tiff/distUrb.tif',
-        'EFAMS_APA' : base_data_path / r'tiff/EFAMS_APA.tif',
-        'EFAMS_ASS' : base_data_path / r'tiff/EFAMS_ASS.tif',
-        'EFAMS_CAR' : base_data_path / r'tiff/EFAMS_CAR.tif',
-        'EFAMS_FPND' : base_data_path / r'tiff/EFAMS_FPND.tif',
-        'EFAMS_IND' : base_data_path / r'tiff/EFAMS_IND.tif',
-        'EFAMS_TI' : base_data_path / r'tiff/EFAMS_TI.tif',
-        'EFAMS_UC' : base_data_path / r'tiff/EFAMS_UC.tif',
-        'HIDR' : base_data_path / r'tiff/hidr.tif',
-        'NOFOREST' : base_data_path / r'tiff/nf.tif',
-        'RodNOficial' : base_data_path / r'tiff/rodnofic.tif',
-        'RodOficial' : base_data_path / r'tiff/rodofic.tif',
+
+
+class default:
+    n_prev_times = 2
+    n_train_times = 34
+    n_val_times = 24
+    n_test_times = 24
+    patch_size = 32
+    train_overlap = 0.8
+    train_batch_size = 32
+    train_num_workers = 1
+    prediction_overlap = 0.5
+    prediction_border_removal = 4
+    features = ['ArCS', 'HIDR', 'Monthly']
+
+image_data_module = ImageDataModule(
+    n_previous_times = default.n_prev_times,
+    train_times = default.n_train_times,
+    val_times = default.n_val_times,
+    test_times = default.n_test_times,
+    patch_size = default.patch_size,
+    train_overlap = default.train_overlap,
+    train_batch_size = default.train_batch_size,
+    train_num_workers = default.train_num_workers,
+    prediction_overlap = default.prediction_overlap,
+    features = default.features
+)
+
+save_pred_callback = SavePrediction(
+    n_prev = default.n_prev_times,
+    patch_size = default.patch_size,
+    test_times = default.n_test_times,
+    border_removal=default.prediction_border_removal,
+    save_tiff=True
+)
+    
+experiments = {
+    'resunet':{
+        'experiment_name': 'Deforestation Prediction',
+        'run_name': 'resunet',
+        'model_name': 'resunet',
+        'model': Resunet(
+            in_depth= default.n_prev_times,
+            depths = [32, 64, 128, 256],
+            ),
+        'criterion': torch.nn.MSELoss(reduction='none'),
+        'optimizer' : torch.optim.Adam,
+        'optimizer_params': {
+            'lr': 1e-5
+        },
+        'data_module': image_data_module,
+        'save_pred_callback': save_pred_callback
+        
     }
-
 }

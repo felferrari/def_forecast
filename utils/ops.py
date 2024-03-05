@@ -8,6 +8,11 @@ from pathlib import Path
 from typing import Union
 import yaml 
 from multiprocessing import Pool
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from einops import rearrange
+import mlflow
 
 def remove_outliers(img, signficance = 0.01):
     outliers = np.quantile(img, [signficance, 1-signficance], axis = (0,1))
@@ -231,3 +236,108 @@ def count_parameters(model):
     return total_params
 
 
+def evaluate_results(reference, predictions, mask, bins = [0, 100]):
+    #evaluate metrics
+    ref_flatten_mask = rearrange(reference, 'h w c -> (h w) c')[mask.flatten() == 1]
+    pred_flatten_mask = rearrange(predictions, 'h w c -> (h w) c')[mask.flatten() == 1]
+    mse = mean_squared_error(ref_flatten_mask, pred_flatten_mask)
+    mae = mean_absolute_error(ref_flatten_mask, pred_flatten_mask)
+    
+    #metrics with bins
+    #mse_bins, mae_bins = [], []
+    bin_value_0 = bins[0]
+    ref_bin = ref_flatten_mask[ref_flatten_mask == bin_value_0]
+    pred_bin = pred_flatten_mask[ref_flatten_mask == bin_value_0]
+    #mse_bins.append(mean_squared_error(ref_bin, pred_bin))
+    #mae_bins.append(mean_absolute_error(ref_bin, pred_bin))
+    
+    mse__dict = {
+        str(bins[0]): mean_squared_error(ref_bin, pred_bin)
+    }
+    mae__dict = {
+        str(bins[0]): mean_absolute_error(ref_bin, pred_bin)
+    }
+    for i, bin_value_end in enumerate(bins):
+        if i == 0:
+            continue
+        ref_bin = ref_flatten_mask[np.logical_and(ref_flatten_mask > bin_value_0, ref_flatten_mask <= bin_value_end)]
+        pred_bin = pred_flatten_mask[np.logical_and(ref_flatten_mask > bin_value_0, ref_flatten_mask <= bin_value_end)]
+        #mse_bins.append(mean_squared_error(ref_bin, pred_bin))
+        #mae_bins.append(mean_absolute_error(ref_bin, pred_bin))
+        
+        mse__dict [f'{bins[i-1]}-{bin_value_end}'] = mean_squared_error(ref_bin, pred_bin)
+        mae__dict [f'{bins[i-1]}-{bin_value_end}'] = mean_absolute_error(ref_bin, pred_bin)
+    
+    
+    fig = plt.figure()
+    plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
+    plt.xticks(range(len(mse__dict)), list(mse__dict.keys()))
+    plt.xlabel('bins values (Km2)')
+    plt.ylabel('MSE')
+    mlflow.log_figure(fig, f'figures/bar_mse.png')
+    plt.close()
+    
+    fig = plt.figure()
+    plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
+    plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
+    plt.xlabel('bins values (Km2)')
+    plt.ylabel('MAE')
+    mlflow.log_figure(fig, f'figures/bar_mae.png')
+    plt.close()
+    
+    #metrics for each lag
+    mse_list, mae_list = [],[]
+    for i in range(reference.shape[2]):
+        ref_i = reference[:,:,i]
+        pred_i = predictions[:,:,i]
+        
+        if ref_i.max() > 0:
+            ref_i_norm = (ref_i - ref_i.min())/ref_i.max()
+        if pred_i.max() > 0:
+            pred_i_norm = (pred_i - pred_i.min())/pred_i.max()
+        
+        fig, axarr = plt.subplots(1,2)
+        im_0 = axarr[0].imshow(ref_i_norm, cmap = 'gray')
+        axarr[0].axis("off")
+        divider = make_axes_locatable(axarr[0])
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        fig.colorbar(im_0, cax=cax, orientation='vertical')
+        
+        im_1 = axarr[1].imshow(pred_i_norm, cmap = 'gray')
+        axarr[1].axis("off")
+        divider = make_axes_locatable(axarr[1])
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        fig.colorbar(im_1, cax=cax, orientation='vertical')
+        mlflow.log_figure(fig, f'dual/time_{i:02d}.png')
+        #plt.savefig(path_to_save / f'result_{i}.jpg')
+        plt.close()
+        
+        
+        fig, axarr = plt.subplots(1,1)
+        single_image = np.stack([ref_i_norm, pred_i_norm, 0.9*(1-mask)], axis=-1)
+        plt.imshow(single_image)
+        plt.axis("off")
+        mlflow.log_figure(fig, f'single/time_{i:02d}.png')
+        #plt.savefig(path_to_save / f'single_{i}.jpg')
+        plt.close()
+
+        
+        ref_i_norm_flatten_masked = ref_i_norm
+        mse_list.append(mean_squared_error(ref_i_norm, pred_i_norm))
+        mae_list.append(mean_absolute_error(ref_i_norm, pred_i_norm))
+        
+    fig, axarr = plt.subplots(1,1)
+    plt.bar(mse_list)
+    plt.ylim([0,0.01])
+    plt.ylabel('MSE')
+    plt.xlabel('Time')
+    mlflow.log_figure(fig, f'figures/mse_time.png')
+    #plt.savefig(path_to_save / 'mse_time.jpg')
+    plt.close()
+    
+    fig, axarr = plt.subplots(1,1)
+    plt.plot(mae_list)
+    plt.ylim([0,0.025])
+    mlflow.log_figure(fig, f'figures/mae_time.png')
+    #plt.savefig(path_to_save / 'mae_time.jpg')
+    plt.close()
