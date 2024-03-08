@@ -46,7 +46,7 @@ class ImageDataModule(LightningDataModule):
             band_last = self.train_times,
             features = self.features,
             patch_size = self.patch_size,
-            prediction_overlap = self.train_overlap,
+            overlap = self.train_overlap,
             mode='train'
         )
         return DataLoader(
@@ -63,7 +63,7 @@ class ImageDataModule(LightningDataModule):
             band_last = self.train_times + self.val_times,
             features = self.features,
             patch_size = self.patch_size,
-            prediction_overlap = self.train_overlap,
+            overlap = self.train_overlap,
             mode='validation'
         )
         return DataLoader(
@@ -79,7 +79,7 @@ class ImageDataModule(LightningDataModule):
             band_last = self.train_times + self.val_times + self.test_times,
             features = self.features,
             patch_size = self.patch_size,
-            prediction_overlap = self.train_overlap,
+            overlap = self.train_overlap,
             mode='test'
         )
         return DataLoader(
@@ -106,7 +106,7 @@ class ImageDataModule(LightningDataModule):
 
 
 class PatchTrainDataset(Dataset):
-    def __init__(self, n_prev, band_first, band_last, features, mode, prediction_overlap, patch_size):
+    def __init__(self, n_prev, band_first, band_last, features, mode, overlap, patch_size):
         self.patch_size = patch_size
         self.n_prev = n_prev
         self.band_first = band_first
@@ -124,7 +124,7 @@ class PatchTrainDataset(Dataset):
         self.mask = mask.flatten()
 
         idx_array = rearrange(np.arange(shape[0]*shape[1]), f' (h w) -> h w', h = shape[0], w = shape[1])
-        self.patches_idx = rearrange(view_as_windows(idx_array, (patch_size, patch_size), int((1-prediction_overlap)*patch_size)), 'nh nw h w -> (nh nw) h w')
+        self.patches_idx = rearrange(view_as_windows(idx_array, (patch_size, patch_size), int((1-overlap)*patch_size)), 'nh nw h w -> (nh nw) h w')
 
         #clean patches outside the mask
         self.patches_idx = self.patches_idx[np.any((self.mask[self.patches_idx] == 1), axis=(1,2))]

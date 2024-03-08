@@ -18,33 +18,33 @@ class ModelModule(L.LightningModule):
         
    
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, mask = batch
+        x, y, weight = batch
         y_hat = self.model(x) 
         #loss = F.mse_loss(y_hat, y)
         loss = self.criterion(y_hat, y)
-        loss = (loss*mask).sum() / mask.sum()
+        loss = (loss*weight).sum() / weight.sum()
         self.log('train_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
         return loss
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, mask = batch
+        x, y, weight = batch
         y_hat = self.model(x)
         loss = self.criterion(y_hat, y)
-        loss = (loss*mask).sum() / mask.sum()
+        loss = (loss*weight).sum() / weight.sum()
         self.log('val_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
         return loss
     
     def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, mask = batch
+        x, y, weight = batch
         y_hat = self.model(x)
         #y_hat = torch.zeros_like(y_hat)
         loss = self.criterion(y_hat, y)
-        loss = (loss*mask).sum() / mask.sum()
+        loss = (loss*weight).sum() / weight.sum()
         #self.log('test_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
         
         y_f = y.flatten()
         y_hat_f = y_hat.flatten()
-        mask_f = mask.flatten()
+        mask_f = weight.flatten()
         
         y_f = y_f[mask_f > 0]
         y_hat_f = y_hat_f[mask_f > 0]
@@ -60,9 +60,8 @@ class ModelModule(L.LightningModule):
         self.test_mae.reset()
         
     def predict_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, mask, idx, band_i = batch
+        x, y, weight, idx, band_i = batch
         y_pred = self.model(x) 
-        y_pred [ mask == 0] = 0
         return y_pred 
         
 

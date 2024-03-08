@@ -1,15 +1,9 @@
 from models.model_module import ModelModule
 import segmentation_models_pytorch as smp
-import torch
-from utils.image_datasets import ImageDataModule
-from utils.callbacks import SavePrediction
 from lightning.pytorch.trainer.trainer import  Trainer
-from lightning.pytorch.loggers.mlflow import MLFlowLogger
-from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, DeviceStatsMonitor
-from models.models import Resunet
+from lightning.pytorch.callbacks import EarlyStopping
 from utils.ops import evaluate_results, load_ml_image, load_sb_image
 import config, paths
-from pathlib import Path
 import fire
 import mlflow
 from mlflow.pytorch import autolog
@@ -20,24 +14,6 @@ def train(
     exp_name,
     ):
     
-    #exp_path = Path(f'experiments/exp_{exp_name}')
-    #exp_path.mkdir(exist_ok=True)
-    
-    
-    #Data setup
-    # data_module = ImageDataModule(
-    #     n_previous_times = n_prev_times,
-    #     train_times = n_train_times,
-    #     val_times = n_val_times,
-    #     test_times = n_test_times,
-    #     patch_size = patch_size,
-    #     train_overlap = train_overlap,
-    #     train_batch_size = train_batch_size,
-    #     train_num_workers = train_num_workers,
-    #     prediction_overlap = prediction_overlap,
-    #     features = features
-    # )
-    
     experiment = experiments[exp_name]
     
     run_name = experiment['run_name']
@@ -46,33 +22,29 @@ def train(
     model = experiment['model']
     criterion = experiment['criterion']
     optimizer = experiment['optimizer']
-    optimizer_params = experiment['optimizer_params']
     data_module = experiment['data_module']
+    train_params = experiment['train_params']
     
-    #Model setup
-    # model = smp.UnetPlusPlus(
-    #     #encoder_name="resnext101_32x8d",
-    #     encoder_name="resnet34",
-    #     in_channels=n_prev,
-    #     classes = 1,
-    #     encoder_weights = None,
-    #     activation='identity'
-    # )
-
+    model = model['class'](**model['params'])
+    data_module = data_module['class'](**data_module['params'])
+    criterion = criterion['class'](**criterion['params'])
     
-    modelModule = ModelModule(model, criterion, optimizer, optimizer_params)
+    modelModule = ModelModule(model, criterion, optimizer['class'], optimizer['params'])
     
     callbacks = [
         EarlyStopping(
             monitor = 'val_loss',
-            patience = 10,
+            patience = train_params['patience'],
             verbose = True
         )
     ]
     trainer = Trainer(
-        accelerator = 'gpu',
+        accelerator = train_params['accelerator'],
+        
         logger = False,
         callbacks = callbacks,
+        limit_train_batches=200,
+        limit_val_batches=200
         #max_epochs=2
     )
     
@@ -107,22 +79,24 @@ def predict(
     experiment = experiments[exp_name]
     
     run_name = experiment['run_name']
-    model_name = experiment['model_name']
     experiment_name = experiment['experiment_name']
     data_module = experiment['data_module']
     save_pred_callback = experiment['save_pred_callback']
+    pred_params = experiment['pred_params']
+    
+    save_pred_callback = save_pred_callback['class'](**save_pred_callback['params'])
+    data_module = data_module['class'](**data_module['params'])
     
     callbacks = [
         save_pred_callback
     ]
     trainer = Trainer(
-        accelerator = 'gpu',
+        accelerator = pred_params['accelerator'],
         logger = False,
         callbacks = callbacks,
-        #max_epochs=2
     )
     
-    mlflow.set_experiment('Deforestation Prediction')
+    mlflow.set_experiment(experiment_name)
     
     if version is None:
         runs = mlflow.search_runs(
@@ -140,8 +114,6 @@ def predict(
     model_id = f'runs:/{run_id}/model'
     modelModule = mlflow.pytorch.load_model(model_id)
     
-    #model_file_path = Path(f'experiments/exp/model.ckpt')
-    #modelModule = ModelModule.load_from_checkpoint(model_file_path)
     mlflow.set_experiment(experiment_name)
     autolog()
     with mlflow.start_run(run_id=run_id):
@@ -163,7 +135,6 @@ def predict(
         pred_results = save_pred_callback.final_image
         qd_paths_dict = paths.path_to_data['def_data']
         ref_data = load_ml_image(qd_paths_dict)[:,:,-22:]
-        #path_to_save = f'experiments/exp_0/images'
         mask = load_sb_image(paths.path_to_mask)
         mse, mae, norm_mse, norm_mae = evaluate_results(ref_data, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
         mlflow.log_metrics({

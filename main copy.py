@@ -2,7 +2,7 @@ from models.model_module import ModelModule
 import segmentation_models_pytorch as smp
 import torch
 from utils.image_datasets import ImageDataModule
-from utils.callbacks import SavePrediction
+from utils.callbacks import SaveImagePrediction
 from lightning.pytorch.trainer.trainer import  Trainer
 from lightning.pytorch.loggers.mlflow import MLFlowLogger
 from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
@@ -55,7 +55,7 @@ def train(exp_n):
         #log_model = True
         )
     
-    save_pred_callback = SavePrediction(
+    save_pred_callback = SaveImagePrediction(
         tiff_path = f'experiments/exp_{exp_n}/prediction.tif',
         n_prev = n_prev,
         patch_size = 32,
