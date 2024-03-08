@@ -116,7 +116,7 @@ class VectorDataModule(LightningDataModule):
 
 
 class VectorTrainDataset(Dataset):
-    def __init__(self, n_prev, band_first, band_last, features, mode):
+    def __init__(self, n_prev, band_first, band_last, features, mode, ):
         self.n_prev = n_prev
         self.band_first = band_first
         self.band_last = band_last
