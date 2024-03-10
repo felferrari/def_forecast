@@ -6,7 +6,6 @@ from utils.ops import load_ml_image, load_sb_image
 from einops import rearrange
 from skimage.util import view_as_windows
 from lightning import LightningDataModule
-import paths
 import albumentations as A
 from albumentations.augmentations.geometric.transforms import HorizontalFlip, VerticalFlip 
 

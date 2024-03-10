@@ -60,7 +60,7 @@ class ModelModule(L.LightningModule):
         self.test_mae.reset()
         
     def predict_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, weight, idx, band_i = batch
+        x, y, weight, vec_i, band_i = batch
         y_pred = self.model(x) 
         return y_pred 
         

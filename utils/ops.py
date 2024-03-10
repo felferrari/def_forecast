@@ -99,9 +99,9 @@ def load_ml_image(img_file):
         array:numpy array of the image. Channels Last.
     """
     img = gdal_array.LoadFile(str(img_file)).astype(np.float32)
-    #img[np.isnan(img)] = 0
-    #if len(img.shape) == 2 :
-    #    img = np.expand_dims(img, axis=0)
+    img[np.isnan(img)] = 0
+    if len(img.shape) == 2 :
+        img = np.expand_dims(img, axis=0)
     return np.moveaxis(img, 0, -1)
 
 
@@ -166,7 +166,7 @@ def load_exp(exp_n = None):
         return load_json(os.path.join('conf', 'exps', f'exp_{exp_n}.json'))
     
 
-def save_geotiff(base_image_path, dest_path, data, dtype):
+def save_geotiff(base_image_path, dest_path, data, dtype, nodata = None):
     """Save data array as geotiff.
     Args:
         base_image_path (str): Path to base geotiff image to recovery the projection parameters
@@ -210,9 +210,13 @@ def save_geotiff(base_image_path, dest_path, data, dtype):
 
     if len(data.shape) == 2:
         target_ds.GetRasterBand(1).WriteArray(data)
+        if nodata is not None:
+            target_ds.GetRasterBand(1).SetNoDataValue(nodata)
     elif len(data.shape) == 3:
         for band_i in range(1, data.shape[-1]+1):
             target_ds.GetRasterBand(band_i).WriteArray(data[:,:,band_i-1])
+            if nodata is not None:
+                target_ds.GetRasterBand(1).SetNoDataValue(nodata)
     target_ds = None
 
 def count_parameters_old(model):
@@ -321,19 +325,24 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
             
         ref_i_norm[mask == 0] = 0
         pred_i_norm[mask == 0] = 0
+        
+        ref_i[mask == 0] = 0
+        pred_i[mask == 0] = 0
             
         norm_ref[:,:,i] = ref_i_norm
         norm_preds[:,:,i] = pred_i_norm
         
         fig, axarr = plt.subplots(1,2)
-        im_0 = axarr[0].imshow(ref_i_norm, cmap = 'gray')
+        im_0 = axarr[0].imshow(ref_i, cmap = 'gray', vmin = ref_i_flatten_mask.min(), vmax = ref_i_flatten_mask.max())
         axarr[0].axis("off")
+        axarr[0].set_title("Reference")
         divider = make_axes_locatable(axarr[0])
         cax = divider.append_axes('right', size='5%', pad=0.05)
         fig.colorbar(im_0, cax=cax, orientation='vertical')
         
-        im_1 = axarr[1].imshow(pred_i_norm, cmap = 'gray')
+        im_1 = axarr[1].imshow(pred_i, cmap = 'gray', vmin = pred_i_flatten_mask.min(), vmax = pred_i_flatten_mask.max())
         axarr[1].axis("off")
+        axarr[1].set_title("Prediction")
         divider = make_axes_locatable(axarr[1])
         cax = divider.append_axes('right', size='5%', pad=0.05)
         fig.colorbar(im_1, cax=cax, orientation='vertical')

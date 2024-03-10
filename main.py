@@ -3,10 +3,12 @@ import segmentation_models_pytorch as smp
 from lightning.pytorch.trainer.trainer import  Trainer
 from lightning.pytorch.callbacks import EarlyStopping
 from utils.ops import evaluate_results, load_ml_image, load_sb_image
-import config, paths
+import config
 import fire
 import mlflow
 from mlflow.pytorch import autolog
+import features 
+from einops import rearrange
 
 default = config.default
 experiments = config.experiments
@@ -25,8 +27,10 @@ def train(
     data_module = experiment['data_module']
     train_params = experiment['train_params']
     
-    model = model['class'](**model['params'])
+    
     data_module = data_module['class'](**data_module['params'])
+    model['params']['input_sample'] = data_module.train_dataloader().dataset[0]
+    model = model['class'](**model['params'])
     criterion = criterion['class'](**criterion['params'])
     
     modelModule = ModelModule(model, criterion, optimizer['class'], optimizer['params'])
@@ -43,8 +47,8 @@ def train(
         
         logger = False,
         callbacks = callbacks,
-        limit_train_batches=200,
-        limit_val_batches=200
+        limit_train_batches=train_params['limit_train_batches'],
+        limit_val_batches=train_params['limit_val_batches']
         #max_epochs=2
     )
     
@@ -132,11 +136,12 @@ def predict(
         )
     
         #results
+        mask = load_sb_image(features.mask_path)
         pred_results = save_pred_callback.final_image
-        qd_paths_dict = paths.path_to_data['def_data']
-        ref_data = load_ml_image(qd_paths_dict)[:,:,-22:]
-        mask = load_sb_image(paths.path_to_mask)
-        mse, mae, norm_mse, norm_mae = evaluate_results(ref_data, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
+        true_results = rearrange(data_module.prediction_ds.dataset.label.data, 'l (h w) -> h w l', h = mask.shape[0], w = mask.shape[1])
+        true_results = true_results[:,:,data_module.n_previous_times:]
+        
+        mse, mae, norm_mse, norm_mae = evaluate_results(true_results, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
         mlflow.log_metrics({
             'predicted_mse': mse,
             'predicted_mae': mae,

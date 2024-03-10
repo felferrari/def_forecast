@@ -4,7 +4,7 @@ from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import BasePredictionWriter
 from pathlib import Path
 import numpy as np
-import paths
+import features
 from utils.ops import load_sb_image, save_geotiff
 from einops import rearrange
 import mlflow
@@ -19,7 +19,7 @@ class SaveImagePrediction(BasePredictionWriter):
         self.border_removal = border_removal
         self.save_tiff = log_tiff
         
-        mask = load_sb_image(paths.path_to_mask)
+        mask = load_sb_image(features.mask)
         shape = mask.shape
         self.padded_shape = (shape[0] + 2*patch_size, shape[1] + 2*patch_size, test_times - n_prev)
         
@@ -48,7 +48,7 @@ class SaveImagePrediction(BasePredictionWriter):
         if self.save_tiff:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
-                save_geotiff(paths.path_to_mask, tmp_file, self.final_image, 'float')
+                save_geotiff(features.mask, tmp_file, self.final_image, 'float')
                 mlflow.log_artifact(tmp_file, 'prediction')
                 
 class SaveVectorPrediction(BasePredictionWriter):
@@ -57,7 +57,7 @@ class SaveVectorPrediction(BasePredictionWriter):
         self.n_prev = n_prev
         self.save_tiff = log_tiff
         
-        mask = load_sb_image(paths.path_to_mask)
+        mask = load_sb_image(features.mask_path)
         self.shape = mask.shape
         
         self.predicted_values = np.zeros(self.shape + (test_times - n_prev,), dtype=np.float64)
@@ -65,14 +65,14 @@ class SaveVectorPrediction(BasePredictionWriter):
                
     
     def write_on_batch_end(self, trainer: Trainer, pl_module: LightningModule, prediction: Any, batch_indices, batch: Any, batch_idx: int, dataloader_idx: int) -> None:
-        x_list, y_list, weight_list, vector_i_list, band_i_list = batch
+        x_list, y_list, weight_list, vector_i_list, lag_i_list = batch
         for i in range(len(vector_i_list)):
             pred_i = prediction[i]
-            band_i = band_i_list[i]
+            lag_i = lag_i_list[i]
             vector_i = vector_i_list[i]
             weight_i = weight_list[i]
             
-            self.predicted_values[vector_i, band_i-self.n_prev] = pred_i * weight_i
+            self.predicted_values[vector_i, lag_i-self.n_prev] = pred_i * weight_i
     
     def write_on_epoch_end(self, trainer: Trainer, pl_module: LightningModule, predictions: Sequence[Any], batch_indices: Sequence[Any]) -> None:
         self.final_image = rearrange(self.predicted_values, '(h w) c -> h w c', h = self.shape[0], w = self.shape[1])
@@ -80,5 +80,5 @@ class SaveVectorPrediction(BasePredictionWriter):
         if self.save_tiff:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
-                save_geotiff(paths.path_to_mask, tmp_file, self.final_image, 'float')
+                save_geotiff(features.mask_path, tmp_file, self.final_image, 'float')
                 mlflow.log_artifact(tmp_file, 'prediction')

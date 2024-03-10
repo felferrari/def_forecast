@@ -7,17 +7,17 @@ import models
 import utils
 
 class default:
-    n_prev_times = 2
-    n_train_times = 34
-    n_val_times = 24
-    n_test_times = 24
+    n_prev_times = 12
+    n_train_times = 72
+    n_val_times = 48
+    n_test_times = 48
     patch_size = 32
     train_overlap = 0.8
     train_batch_size = 32
     train_num_workers = 1
     prediction_overlap = 0.5
     prediction_border_removal = 4
-    features = ['ArDS', 'HIDR', 'Monthly']
+    features_list = ['ArDS']  # first element is the target feature
 
 image_data_module = {
     'class': ImageDataModule,
@@ -31,7 +31,7 @@ image_data_module = {
         'train_batch_size' : default.train_batch_size,
         'train_num_workers' : default.train_num_workers,
         'predictio_overlap' : default.prediction_overlap,
-        'features' : default.features
+        'features' : default.features_list
     }
 }
 
@@ -44,7 +44,9 @@ vector_data_module = {
         'test_times' : default.n_test_times,
         'train_batch_size' : default.train_batch_size,
         'train_num_workers' : default.train_num_workers,
-        'features' : default.features
+        'features_list' : default.features_list,
+        'normalize_data' : True,
+        'normalize_label' : False
     }
 }
 
@@ -86,6 +88,8 @@ experiments = {
         'train_params':{
             'patience': 10,
             'accelerator' : 'gpu',
+            'limit_train_batches': 6000,
+            'limit_val_batches': 3000,
             
         },
         'pred_params':{
@@ -125,14 +129,14 @@ experiments['mlp_vector_base'].update({
     'model': {
         'class': Mlp,
         'params':{
-            'in_depth' : default.n_prev_times,
+            #'in_depth' : default.n_prev_times,
             'layers':[64, 256, 512, 1024, 512, 256, 128]
         }            
     },
     'optimizer' : {
         'class' : torch.optim.Adam,
         'params':{
-            'lr': 2e-6
+            'lr': 1e-6
         }
     },
     'data_module': vector_data_module,
