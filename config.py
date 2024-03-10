@@ -18,7 +18,9 @@ class default:
     prediction_overlap = 0.5
     prediction_border_removal = 4
     pred_batch_size = 32
-    train_sample_bins = [0, 10]
+    train_sample_bins = [0, 20]
+    label_bins = [0, 10]
+    label_weights = [1, 10, 100]
     features_list = ['ArDS']  # first element is the target feature
 
 image_data_module = {
@@ -32,7 +34,7 @@ image_data_module = {
         'train_overlap' : default.train_overlap,
         'train_batch_size' : default.train_batch_size,
         'train_num_workers' : default.train_num_workers,
-        'predictio_overlap' : default.prediction_overlap,
+        'prediction_overlap' : default.prediction_overlap,
         'features' : default.features_list
     }
 }
@@ -49,6 +51,8 @@ vector_data_module = {
         'features_list' : default.features_list,
         'pred_batch_size' : default.pred_batch_size,
         'sample_bins' : default.train_sample_bins,
+        'label_bins' : default.label_bins,
+        'label_weights' : default.label_weights,
         'normalize_data' : True,
         'normalize_label' : False
     }
@@ -151,3 +155,124 @@ experiments['mlp_vector_base']['data_module']['params'].update({'pred_batch_size
 experiments['mlp_vector_base']['data_module']['params'].update({'train_num_workers' : 4})
 
 experiments['mlp'] = experiments['mlp_vector_base']
+
+train_samples_cond = [
+    None,
+    [0],
+    [0, 1],
+    [0, 5],
+    [0, 10],
+    [0, 20],
+    [0, 1, 10],
+    [0, 1, 20],
+    [0, 5, 10],
+    [0, 5, 20],
+    [0, 10, 20],
+    [0, 1, 5, 10],
+    [0, 1, 5, 20]
+]
+
+train_bins_weights = [
+    {
+        'bins': None,
+        'weights': None
+    },
+    {
+        'bins': [0],
+        'weights': [1, 10]
+    },
+    {
+        'bins': [0],
+        'weights': [1, 100]
+    },
+    {
+        'bins': [0],
+        'weights': [1, 1000]
+    },
+    {
+        'bins': [0],
+        'weights': [1, 10000]
+    },
+    {
+        'bins': [0, 1],
+        'weights': [1, 10, 100]
+    },
+    {
+        'bins': [0, 1],
+        'weights': [1, 10, 1000]
+    },
+    {
+        'bins': [0, 1],
+        'weights': [1, 100, 1000]
+    },
+    {
+        'bins': [0, 1],
+        'weights': [1, 100, 10000]
+    },
+    {
+        'bins': [0, 1],
+        'weights': [1, 1000, 10000]
+    },
+    {
+        'bins': [0, 5],
+        'weights': [1, 10, 100]
+    },
+    {
+        'bins': [0, 5],
+        'weights': [1, 10, 1000]
+    },
+    {
+        'bins': [0, 5],
+        'weights': [1, 100, 1000]
+    },
+    {
+        'bins': [0, 5],
+        'weights': [1, 100, 10000]
+    },
+    {
+        'bins': [0, 5],
+        'weights': [1, 1000, 10000]
+    },
+    {
+        'bins': [0, 10],
+        'weights': [1, 10, 100]
+    },
+    {
+        'bins': [0, 10],
+        'weights': [1, 10, 1000]
+    },
+    {
+        'bins': [0, 10],
+        'weights': [1, 100, 1000]
+    },
+    {
+        'bins': [0, 10],
+        'weights': [1, 100, 10000]
+    },
+    {
+        'bins': [0, 10],
+        'weights': [1, 1000, 10000]
+    },
+    {
+        'bins': [0, 1, 10],
+        'weights': [1, 10, 100, 1000]
+    },
+    {
+        'bins': [0, 1, 10],
+        'weights': [1, 10, 1000, 10000]
+    },
+    {
+        'bins': [0, 1, 10],
+        'weights': [1, 10, 1000, 100000]
+    },
+    {
+        'bins': [0, 1, 10],
+        'weights': [1, 100, 1000, 10000]
+    }
+]
+
+for i, train_weights in enumerate(train_bins_weights):
+    experiments[f'mlp_weight_{i}'] = experiments['mlp']
+    experiments[f'mlp_weight_{i}']['data_module']['params']['label_bins'] = train_weights['bins']
+    experiments[f'mlp_weight_{i}']['data_module']['params']['label_weights'] = train_weights['weights']
+    
