@@ -2,6 +2,7 @@ from pathlib import Path
 from utils.ops import load_ml_image, load_sb_image
 from einops import rearrange, repeat
 from enum import Enum
+import numpy as np
 
 class PERIOD(Enum):
     BIWEEKLY = 0
@@ -97,7 +98,7 @@ class FeatureDataSet():
         return self.label.data.shape[1]
     
     def get_data(self, lag_i, vector_i, n_prev):
-        label = self.label.data[lag_i, vector_i]
+        label = np.array([self.label.data[lag_i, vector_i]])
         data = {}
         for feature in self.features:
             if feature.period == PERIOD.FIXED:

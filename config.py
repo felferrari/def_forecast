@@ -17,6 +17,8 @@ class default:
     train_num_workers = 1
     prediction_overlap = 0.5
     prediction_border_removal = 4
+    pred_batch_size = 32
+    train_sample_bins = [0, 10]
     features_list = ['ArDS']  # first element is the target feature
 
 image_data_module = {
@@ -45,6 +47,8 @@ vector_data_module = {
         'train_batch_size' : default.train_batch_size,
         'train_num_workers' : default.train_num_workers,
         'features_list' : default.features_list,
+        'pred_batch_size' : default.pred_batch_size,
+        'sample_bins' : default.train_sample_bins,
         'normalize_data' : True,
         'normalize_label' : False
     }
@@ -86,10 +90,10 @@ experiments = {
 
         
         'train_params':{
-            'patience': 10,
+            'patience': 30,
             'accelerator' : 'gpu',
-            'limit_train_batches': 6000,
-            'limit_val_batches': 3000,
+            'limit_train_batches': 1000,
+            'limit_val_batches': None,
             
         },
         'pred_params':{
@@ -130,19 +134,20 @@ experiments['mlp_vector_base'].update({
         'class': Mlp,
         'params':{
             #'in_depth' : default.n_prev_times,
-            'layers':[64, 256, 512, 1024, 512, 256, 128]
+            'layers':[64, 256, 512, 256, 128]
         }            
     },
     'optimizer' : {
-        'class' : torch.optim.Adam,
+        'class' : torch.optim.AdamW,
         'params':{
-            'lr': 1e-6
+            'lr': 2e-7
         }
     },
     'data_module': vector_data_module,
     'save_pred_callback': vector_save_pred_callback,
 })
-experiments['mlp_vector_base']['data_module']['params'].update({'train_batch_size' : 64})
-experiments['mlp_vector_base']['data_module']['params'].update({'train_num_workers' : 12})
+experiments['mlp_vector_base']['data_module']['params'].update({'train_batch_size' : 128})
+experiments['mlp_vector_base']['data_module']['params'].update({'pred_batch_size' : 2048})
+experiments['mlp_vector_base']['data_module']['params'].update({'train_num_workers' : 4})
 
 experiments['mlp'] = experiments['mlp_vector_base']

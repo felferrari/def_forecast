@@ -15,6 +15,8 @@ class VectorDataModule(LightningDataModule):
                  train_batch_size,
                  train_num_workers,
                  features_list,
+                 pred_batch_size,
+                 sample_bins,
                  normalize_data,
                  normalize_label
                  ) -> None:
@@ -28,6 +30,7 @@ class VectorDataModule(LightningDataModule):
         self.train_num_workers = train_num_workers
         self.normalize_data = normalize_data
         self.normalize_label = normalize_label
+        self.pred_batch_size = pred_batch_size
         
         #mask = load_sb_image(mask_path).flatten()
         
@@ -117,7 +120,7 @@ class VectorDataModule(LightningDataModule):
         )
         return DataLoader(
             self.prediction_ds,
-            batch_size = self.train_batch_size,
+            batch_size = self.pred_batch_size,
             #num_workers = self.train_num_workers
         )
     
@@ -143,9 +146,9 @@ class VectorTrainDataset(Dataset):
         data, label = self.dataset.get_data(lag_i, vector_i, self.n_prev)
         
         if label > 0 and label < 30 :
-            weight = 100
+            weight = 10
         elif label >= 30:
-            weight = 10000
+            weight = 100
         else:
             weight = 1
             
