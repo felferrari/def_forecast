@@ -7,7 +7,7 @@ import numpy as np
 class PERIOD(Enum):
     BIWEEKLY = 0
     QUARTERLY = 1
-    FIXED = 2
+    STATIC = 2
 
 #PATHS
 base_data_path = Path(r'/home/felferrari/projects/def_forecast/data')
@@ -20,25 +20,73 @@ features = {
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
+    'AcAr':{
+        'path_to_file' : base_data_path / 'tiff/AcAr.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
+    'CtDS':{
+        'path_to_file' : base_data_path / 'tiff/CtDS.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
     'DeAr':{
         'path_to_file' : base_data_path / 'tiff/DeAr.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 1
+    },
+    'Cloud':{
+        'path_to_file' : base_data_path / 'tiff/nv.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 14
+    },
+    'OcDS':{
+        'path_to_file' : base_data_path / 'tiff/OcDS.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
+    'XQ':{
+        'path_to_file' : base_data_path / 'tiff/XQ.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 4
     },
     'XArDS':{
         'path_to_file' : base_data_path / 'tiff/XArDS.tif',
         'period': PERIOD.QUARTERLY,
         'first_lag': 24
     },
+    'XDeDS':{
+        'path_to_file' : base_data_path / 'tiff/XDeDS.tif',
+        'period': PERIOD.QUARTERLY,
+        'first_lag': 24
+    },
+    'DS':{
+        'path_to_file' : base_data_path / 'tiff/DS.tif',
+        'period': PERIOD.QUARTERLY,
+        'first_lag': 0
+    },
     'DryMonths':{
         'path_to_file' : base_data_path / 'tiff/DryMonths_bd_amz_25km.tif',
-        'period': PERIOD.FIXED
+        'period': PERIOD.STATIC
     },
     'Coordinates':{
         'path_to_file' : base_data_path / 'tiff/Coordinates.tif',
-        'period': PERIOD.FIXED
+        'period': PERIOD.STATIC
     },
+    'Dist_bd':{
+        'path_to_file' : base_data_path / 'tiff/Dist_bd_amz_25km.tif',
+        'period': PERIOD.STATIC
+    },
+    'Dvd':{
+        'path_to_file' : base_data_path / 'tiff/Dvd_bd_amz_25km.tif',
+        'period': PERIOD.STATIC
+    },
+    'EF':{
+        'path_to_file' : base_data_path / 'tiff/EF_bd_amz_25km.tif',
+        'period': PERIOD.STATIC
+    }
 }
+
 
 class FeatureData:
     def __init__(self, feat, masked) -> None:
@@ -54,14 +102,14 @@ class FeatureData:
         self.period = features[feat]['period']
         if features[feat]['period'] == PERIOD.QUARTERLY:
             self.data = repeat(self.data, 'l n -> (repeat l) n', repeat = 6)
-        if features[feat]['period'] != PERIOD.FIXED:
+        if features[feat]['period'] != PERIOD.STATIC:
             self.first_data_lag = features[feat]['first_lag']
         
     def normalize_data(self):
         self.data = (self.data - self.min) / (self.max - self.min)
     
     def filter_period(self, fisrt_lag, last_lag):
-        if self.period == PERIOD.FIXED:
+        if self.period == PERIOD.STATIC:
             return
         assert (fisrt_lag - self.first_data_lag >= 0) and (fisrt_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
         assert (last_lag - self.first_data_lag >= 0) and (last_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
@@ -85,7 +133,7 @@ class FeatureDataSet():
     def filter_period(self, first_lag, last_lag):
         self.label.filter_period(first_lag, last_lag)
         for feature in self.features:
-            if feature.period == PERIOD.FIXED:
+            if feature.period == PERIOD.STATIC:
                 continue
             feature.filter_period(first_lag, last_lag)
             assert  feature.data.shape[0] == self.label.data.shape[0], f'All features must have the same size. {feature.name} has a different shape[0].'
@@ -101,7 +149,7 @@ class FeatureDataSet():
         label = np.array([self.label.data[lag_i, vector_i]])
         data = {}
         for feature in self.features:
-            if feature.period == PERIOD.FIXED:
+            if feature.period == PERIOD.STATIC:
                 data[feature.name] = feature.data[:, vector_i]
             elif feature.period == PERIOD.QUARTERLY:
                 data[feature.name] = feature.data[lag_i -1: lag_i, vector_i]
@@ -118,7 +166,7 @@ class FeatureDataSet():
 def get_first_lag(feat_list):
     first_lag = 0
     for feat in feat_list:
-        if features[feat]['period'] == PERIOD.FIXED:
+        if features[feat]['period'] == PERIOD.STATIC:
             continue
         first_lag = max(first_lag, features[feat]['first_lag'])
     

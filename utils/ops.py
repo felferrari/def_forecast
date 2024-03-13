@@ -240,6 +240,27 @@ def count_parameters(model):
     return total_params
 
 def evaluate_bins(ref, pred, bins, metric):
+    """
+    The function `evaluate_bins` calculates a specified metric for different bins of values in two
+    arrays.
+    
+    @param ref The `ref` parameter in the `evaluate_bins` function is typically a NumPy array containing
+    the reference values for evaluation. It is used to create bins based on the values in this array for
+    further analysis and comparison with the predicted values.
+    @param pred It seems like you were about to provide the `pred` parameter for the `evaluate_bins`
+    function. Please go ahead and provide the values for the `pred` parameter so that I can assist you
+    further.
+    @param bins Bins is a list of values that define the boundaries for binning the data. The function
+    `evaluate_bins` will evaluate the performance of the model predictions based on these bins.
+    @param metric The `metric` parameter in the `evaluate_bins` function is a function that calculates a
+    performance metric between the reference values (`ref_bin`) and predicted values (`pred_bin`) for
+    each bin. This metric could be any evaluation measure such as mean squared error, accuracy,
+    precision, recall, F1
+    
+    @return The function `evaluate_bins` returns a dictionary where the keys represent the bins and the
+    values represent the result of applying the specified metric function to the corresponding reference
+    and prediction values within each bin.
+    """
     bin_value_0 = bins[0]
     ref_bin = ref[ref == bin_value_0]
     pred_bin = pred[ref == bin_value_0]
@@ -255,7 +276,32 @@ def evaluate_bins(ref, pred, bins, metric):
         bin_value_0 = bin_value_end
     return res__dict
 
-def evaluate_results(reference, predictions, mask, bins = [0, 100]):
+def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = ''):
+    """
+    This Python function evaluates metrics, generates histograms, and visualizes results for reference
+    and prediction data, including handling normalization and time series analysis.
+    
+    :param reference: The `reference` parameter in the `evaluate_results` function is typically a NumPy
+    array representing the ground truth or actual values that you are comparing your predictions
+    against. It is used to calculate metrics such as Mean Squared Error (MSE) and Mean Absolute Error
+    (MAE) between the reference
+    :param predictions: The `predictions` parameter in the `evaluate_results` function is typically a
+    NumPy array containing the predicted values for a certain task or model. It is used to compare the
+    predicted values with the reference values to evaluate the performance of the model. The function
+    calculates various metrics such as Mean Squared Error
+    :param mask: The `mask` parameter in the `evaluate_results` function is used to specify a mask that
+    filters out certain values from the `reference` and `predictions` arrays during evaluation. The mask
+    is applied to flatten the arrays and calculate metrics only on the values that are not filtered out
+    by the mask
+    :param bins: The `bins` parameter in the `evaluate_results` function is a list that specifies the
+    bin edges for histogram binning. By default, it is set to `[0, 100]`, which means the histogram will
+    have bins with edges at 0 and 100. You can customize this parameter
+    :return: The function `evaluate_results` returns the following values:
+    - `mse`: Mean Squared Error between the reference and prediction data
+    - `mae`: Mean Absolute Error between the reference and prediction data
+    - `norm_mse`: Normalized Mean Squared Error between the normalized reference and prediction data
+    - `norm_mae`: Normalized Mean Absolute Error between the normalized reference and prediction data
+    """
     #evaluate metrics
     original_shape = reference.shape[:2]
     ref_flatten_mask = rearrange(reference, 'h w c -> (h w) c')[mask.flatten() == 1]
@@ -266,13 +312,13 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     fig = plt.figure()
     plt.hist(ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
     plt.title('Reference Histogram')
-    mlflow.log_figure(fig, f'figures/hist_reference.png')
+    mlflow.log_figure(fig, f'figures/hist_reference_{run_name}.png')
     plt.close(fig)
     
     fig = plt.figure()
     plt.hist(pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
     plt.title('Prediction Histogram')
-    mlflow.log_figure(fig, f'figures/hist_prediction.png')
+    mlflow.log_figure(fig, f'figures/hist_prediction_{run_name}.png')
     plt.close(fig)
     
     
@@ -286,7 +332,8 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(mse__dict)), list(mse__dict.keys()))
     plt.xlabel('bins values (Km2)')
     plt.ylabel('MSE')
-    mlflow.log_figure(fig, f'figures/bar_mse.png')
+    plt.ylim([0,600])
+    mlflow.log_figure(fig, f'figures/bar_mse_{run_name}.png')
     plt.close(fig)
     
     fig = plt.figure()
@@ -294,7 +341,28 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
     plt.xlabel('bins values (Km2)')
     plt.ylabel('MAE')
-    mlflow.log_figure(fig, f'figures/bar_mae.png')
+    plt.ylim([0,20])
+    mlflow.log_figure(fig, f'figures/bar_mae_{run_name}.png')
+    plt.close(fig)
+    
+    fig, ax= plt.subplots()
+    plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
+    plt.xticks(range(len(mse__dict)), list(mse__dict.keys()))
+    plt.xlabel('bins values (Km2)')
+    plt.ylabel('MSE (Log)')
+    ax.set_yscale('log')
+    plt.ylim([1e-4,5000])
+    mlflow.log_figure(fig, f'figures/bar_log_mse_{run_name}.png')
+    plt.close(fig)
+    
+    fig, ax= plt.subplots()
+    plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
+    plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
+    plt.xlabel('bins values (Km2)')
+    plt.ylabel('MAE (Log)')
+    ax.set_yscale('log')
+    plt.ylim([1e-3,50])
+    mlflow.log_figure(fig, f'figures/bar_log_mae_{run_name}.png')
     plt.close(fig)
     
     #metrics for each lag and normalization
@@ -346,7 +414,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
         divider = make_axes_locatable(axarr[1])
         cax = divider.append_axes('right', size='5%', pad=0.05)
         fig.colorbar(im_1, cax=cax, orientation='vertical')
-        mlflow.log_figure(fig, f'dual/time_{i:02d}.png')
+        mlflow.log_figure(fig, f'dual/time_{i:02d}_{run_name}.png')
         #plt.savefig(path_to_save / f'result_{i}.jpg')
         plt.close(fig)
         
@@ -355,7 +423,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
         single_image = np.stack([ref_i_norm, pred_i_norm, 0.5*(1-mask)], axis=-1)
         plt.imshow(single_image)
         plt.axis("off")
-        mlflow.log_figure(fig, f'single/time_{i:02d}.png')
+        mlflow.log_figure(fig, f'single/time_{i:02d}_{run_name}.png')
         #plt.savefig(path_to_save / f'single_{i}.jpg')
         plt.close(fig)
 
@@ -376,13 +444,13 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     fig = plt.figure()
     plt.hist(norm_ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
     plt.title('Normalized Reference Histogram')
-    mlflow.log_figure(fig, f'figures/hist_norm_reference.png')
+    mlflow.log_figure(fig, f'figures/hist_norm_reference_{run_name}.png')
     plt.close(fig)
     
     fig = plt.figure()
     plt.hist(norm_pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
     plt.title('Normalized Prediction Histogram')
-    mlflow.log_figure(fig, f'figures/hist_norm_prediction.png')
+    mlflow.log_figure(fig, f'figures/hist_norm_prediction_{run_name}.png')
     plt.close(fig)
     
     
@@ -394,7 +462,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(mse_list)))
     plt.xlabel('Time')
     plt.title('Original MSE')
-    mlflow.log_figure(fig, f'figures/mse_time.png')
+    mlflow.log_figure(fig, f'figures/mse_time_{run_name}.png')
     #plt.savefig(path_to_save / 'mse_time.jpg')
     plt.close(fig)
     
@@ -406,7 +474,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(mae_list)))
     plt.xlabel('Time')
     plt.title('Original MAE')
-    mlflow.log_figure(fig, f'figures/mae_time.png')
+    mlflow.log_figure(fig, f'figures/mae_time_{run_name}.png')
     #plt.savefig(path_to_save / 'mse_time.jpg')
     plt.close(fig)
     
@@ -417,7 +485,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(norm_mse_list)))
     plt.xlabel('Time')
     plt.title('Normalized MSE')
-    mlflow.log_figure(fig, f'figures/norm_mse_time.png')
+    mlflow.log_figure(fig, f'figures/norm_mse_time_{run_name}.png')
     #plt.savefig(path_to_save / 'mse_time.jpg')
     plt.close(fig)
     
@@ -429,8 +497,8 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100]):
     plt.xticks(range(len(norm_mae_list)))
     plt.xlabel('Time')
     plt.title('Normalized MAE')
-    mlflow.log_figure(fig, f'figures/norm_mae_time.png')
+    mlflow.log_figure(fig, f'figures/norm_mae_time_{run_name}.png')
     #plt.savefig(path_to_save / 'mse_time.jpg')
     plt.close(fig)
     
-    return mse, mae, norm_mse, norm_mae
+    return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict

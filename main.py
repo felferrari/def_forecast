@@ -9,12 +9,20 @@ import mlflow
 from mlflow.pytorch import autolog
 import features 
 from einops import rearrange
+import matplotlib
 
 default = config.default
 experiments = config.experiments
-def train(
-    exp_name,
-    ):
+
+def train(exp_name):
+    """
+    The `train` function prepares and executes a machine learning experiment using the specified
+    parameters and configurations.
+    
+    @param exp_name The `train` function you provided seems to be a script for training a machine
+    learning model using PyTorch Lightning and MLflow. It takes an experiment name (`exp_name`) as input
+    to specify which experiment configuration to use for training.
+    """
     
     experiment = experiments[exp_name]
     
@@ -24,11 +32,11 @@ def train(
     model = experiment['model']
     criterion = experiment['criterion']
     optimizer = experiment['optimizer']
-    data_module = experiment['data_module']
+    data_module_cfg = experiment['data_module']
     train_params = experiment['train_params']
     
     
-    data_module = data_module['class'](**data_module['params'])
+    data_module = data_module_cfg['class'](**data_module_cfg['params'])
     model['params']['input_sample'] = data_module.train_dataloader().dataset[0]
     model = model['class'](**model['params'])
     criterion = criterion['class'](**criterion['params'])
@@ -68,7 +76,7 @@ def train(
         else:
             mlflow.log_param('run_version', int(runs['params.run_version'][0])+1)
             
-        
+        mlflow.log_params(data_module_cfg['params'])
         #training
         trainer.fit(
             model = modelModule,
@@ -76,10 +84,20 @@ def train(
         )
     
     
-def predict(
-    exp_name,
-    version = None
-):    
+def predict(exp_name, version = None):    
+    """
+    This Python function `predict` loads a trained PyTorch model from MLflow, performs testing and
+    prediction using the model, and logs evaluation metrics using MLflow.
+    
+    @param exp_name The `exp_name` parameter in the `predict` function is used to specify the name of
+    the experiment for which you want to make predictions. This experiment should be defined in the
+    `experiments` dictionary that contains information about the experiment such as the run name,
+    experiment name, data module, save
+    @param version The `version` parameter in the `predict` function is used to specify a particular
+    version of the experiment to run. If a version is provided, the function will search for runs within
+    the specified experiment that match both the `run_name` and the provided `version`. If no version is
+    provided (
+    """
     experiment = experiments[exp_name]
     
     run_name = experiment['run_name']
@@ -141,15 +159,19 @@ def predict(
         true_results = rearrange(data_module.prediction_ds.dataset.label.data, 'l (h w) -> h w l', h = mask.shape[0], w = mask.shape[1])
         true_results = true_results[:,:,data_module.n_previous_times:]
         
-        mse, mae, norm_mse, norm_mae = evaluate_results(true_results, pred_results, mask, bins = [0, 1, 2, 5, 10, 30, 100])
+        matplotlib.rcParams.update({'font.size': 14})
+        mse, mae, norm_mse, norm_mae, mse__dict, mae__dict = evaluate_results(true_results, pred_results, mask, bins = [0, 1, 2, 5, 10, 80], run_name = exp_name)
         mlflow.log_metrics({
             'predicted_mse': mse,
             'predicted_mae': mae,
             'normalized_predicted_mse': norm_mse,
             'normalized_predicted_mae': norm_mae,
         })
+        #mse__dict['Experiment Name'] = exp_name
+        #mae__dict['Experiment Name'] = exp_name
+        #mlflow.log_table(mse__dict, 'mse_hist.json')
+        #mlflow.log_table(mae__dict, 'mae_hist.json')
     
-  
 
 if __name__ == '__main__':
     fire.Fire()

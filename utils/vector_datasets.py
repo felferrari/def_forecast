@@ -41,7 +41,7 @@ class VectorDataModule(LightningDataModule):
         
         #deforestation data
         self.first_lag = get_first_lag(features_list)
-               
+        
         #train_data = def_data.data[n_previous_times + self.first_lag : train_times]
         train_data = FeatureData(features_list[0], masked=True)
         train_data.filter_period(n_previous_times + self.first_lag, train_times)
