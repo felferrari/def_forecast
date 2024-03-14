@@ -18,7 +18,7 @@ class VectorDataModule(LightningDataModule):
                  pred_batch_size,
                  sample_bins,
                  label_bins,
-                 label_weights,
+                 #label_weights,
                  normalize_data,
                  normalize_label
                  ) -> None:
@@ -34,14 +34,14 @@ class VectorDataModule(LightningDataModule):
         self.normalize_label = normalize_label
         self.pred_batch_size = pred_batch_size
         self.label_bins = label_bins
-        self.label_weights = label_weights
+        #self.label_weights = label_weights
         
         
         #mask = load_sb_image(mask_path).flatten()
         
         #deforestation data
         self.first_lag = get_first_lag(features_list)
-        
+
         #train_data = def_data.data[n_previous_times + self.first_lag : train_times]
         train_data = FeatureData(features_list[0], masked=True)
         train_data.filter_period(n_previous_times + self.first_lag, train_times)
@@ -49,9 +49,54 @@ class VectorDataModule(LightningDataModule):
         val_data = FeatureData(features_list[0], masked=True)
         val_data.filter_period(n_previous_times + train_times, train_times + val_times)
         
+        test_data = FeatureData(features_list[0], masked=True)
+        test_data.filter_period(n_previous_times + train_times + val_times, train_times + val_times + test_times)
+        
+        self.train_label_weights = [1]
+        self.val_label_weights = [1]
+        self.test_label_weights = [1]
+        
+        if label_bins is not None:
+            train_n_bin_0 = (train_data.data == 0).sum() 
+            val_n_bin_0 = (val_data.data == 0).sum() 
+            test_n_bin_0 = (test_data.data == 0).sum() 
+            n_bins = len(label_bins)
+            if n_bins > 1:
+                for i in range(1, n_bins):
+                    train_conditions = np.logical_and(train_data.data > label_bins[i-1], train_data.data <= label_bins[i])
+                    val_conditions = np.logical_and(val_data.data > label_bins[i-1], val_data.data <= label_bins[i])
+                    test_conditions = np.logical_and(test_data.data > label_bins[i-1], test_data.data <= label_bins[i])
+                    train_conditions = rearrange(train_conditions, 'l n -> (l n)')
+                    val_conditions = rearrange(val_conditions, 'l n -> (l n)')
+                    test_conditions = rearrange(test_conditions, 'l n -> (l n)')
+                    
+                    train_prop = train_n_bin_0 / train_conditions.sum()
+                    val_prop = val_n_bin_0 / val_conditions.sum()
+                    test_prop = test_n_bin_0 / test_conditions.sum()
+                    
+                    self.train_label_weights.append(train_prop)
+                    self.val_label_weights.append(val_prop)
+                    self.test_label_weights.append(test_prop)
+                    
+            train_conditions = train_data.data > label_bins[-1]
+            val_conditions = val_data.data > label_bins[-1]
+            test_conditions = test_data.data > label_bins[-1]
+            
+            train_conditions = rearrange(train_conditions, 'l n -> (l n)')
+            val_conditions = rearrange(val_conditions, 'l n -> (l n)')
+            test_conditions = rearrange(test_conditions, 'l n -> (l n)')
+            
+            train_prop = train_n_bin_0 / train_conditions.sum()
+            val_prop = val_n_bin_0 / val_conditions.sum()
+            test_prop = test_n_bin_0 / test_conditions.sum()
+            
+            self.train_label_weights.append(train_prop)
+            self.val_label_weights.append(val_prop)
+            self.test_label_weights.append(test_prop)
+            
         self.train_weights = np.ones_like(train_data.data.flatten())
         self.val_weights = np.ones_like(val_data.data.flatten())
-
+        
         if sample_bins is not None: 
             train_n_bin_0 = (train_data.data == 0).sum() 
             val_n_bin_0 = (val_data.data == 0).sum() 
@@ -94,7 +139,7 @@ class VectorDataModule(LightningDataModule):
             normalize_data=self.normalize_data,
             normalize_label=self.normalize_label,
             label_bins = self.label_bins,
-            label_weights = self.label_weights
+            label_weights = self.train_label_weights
         )
         return DataLoader(
             train_ds,
@@ -114,7 +159,7 @@ class VectorDataModule(LightningDataModule):
             normalize_data=self.normalize_data,
             normalize_label=self.normalize_label,
             label_bins = self.label_bins,
-            label_weights = self.label_weights
+            label_weights = self.train_label_weights
         )
         return DataLoader(
             val_ds,
@@ -133,7 +178,7 @@ class VectorDataModule(LightningDataModule):
             normalize_data=self.normalize_data,
             normalize_label=self.normalize_label,
             label_bins = self.label_bins,
-            label_weights = self.label_weights
+            label_weights = self.train_label_weights
         )
         return DataLoader(
             test_ds,
@@ -167,7 +212,7 @@ class VectorTrainDataset(Dataset):
         self.label_bins = label_bins
         self.label_weights = label_weights
         
-        assert ((label_bins is None) and (label_weights is None)) or len(label_bins) == len(label_weights) - 1, 'Label Weights ans bins must be compatible'
+        assert ((label_bins is None) and (len(label_weights) == 1)) or len(label_bins) == len(label_weights) - 1, 'Label Weights ans bins must be compatible'
         
         self.dataset = FeatureDataSet(features_list, masked=True, normalize_data=normalize_data, normalize_label=normalize_label)
         self.dataset.filter_period(first_lag, last_lag)

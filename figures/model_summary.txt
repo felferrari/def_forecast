@@ -1,0 +1,29 @@
+   | Name         | Type              | Params
+----------------------------------------------------
+0  | model        | Mlp               | 315 K 
+1  | model.mlp    | Sequential        | 315 K 
+2  | model.mlp.0  | Linear            | 832   
+3  | model.mlp.1  | BatchNorm1d       | 128   
+4  | model.mlp.2  | ReLU              | 0     
+5  | model.mlp.3  | Linear            | 16.6 K
+6  | model.mlp.4  | BatchNorm1d       | 512   
+7  | model.mlp.5  | ReLU              | 0     
+8  | model.mlp.6  | Linear            | 131 K 
+9  | model.mlp.7  | BatchNorm1d       | 1.0 K 
+10 | model.mlp.8  | ReLU              | 0     
+11 | model.mlp.9  | Linear            | 131 K 
+12 | model.mlp.10 | BatchNorm1d       | 512   
+13 | model.mlp.11 | ReLU              | 0     
+14 | model.mlp.12 | Linear            | 32.9 K
+15 | model.mlp.13 | BatchNorm1d       | 256   
+16 | model.mlp.14 | ReLU              | 0     
+17 | model.mlp.15 | Linear            | 129   
+18 | model.mlp.16 | ReLU              | 0     
+19 | criterion    | MSELoss           | 0     
+20 | test_mse     | MeanSquaredError  | 0     
+21 | test_mae     | MeanAbsoluteError | 0     
+----------------------------------------------------
+315 K     Trainable params
+0         Non-trainable params
+315 K     Total params
+1.263     Total estimated model params size (MB)

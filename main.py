@@ -1,30 +1,35 @@
+from pathlib import Path
 from models.model_module import ModelModule
 import segmentation_models_pytorch as smp
 from lightning.pytorch.trainer.trainer import  Trainer
 from lightning.pytorch.callbacks import EarlyStopping
-from utils.ops import evaluate_results, load_ml_image, load_sb_image
+from utils.ops import load_ml_image, load_sb_image, generate_images, generate_metric_figures, generate_histograms, evaluate_metric
 import config
-import fire
+#import fire
+import argparse
 import mlflow
 from mlflow.pytorch import autolog
 import features 
 from einops import rearrange
 import matplotlib
+import tempfile
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('function', type = str, choices=['train', 'predict', 'evaluate'])
+parser.add_argument('model_name', type=str)
+parser.add_argument('--version', type=int, required=False)
+
+args = parser.parse_args()
 
 default = config.default
 experiments = config.experiments
 
-def train(exp_name):
-    """
-    The `train` function prepares and executes a machine learning experiment using the specified
-    parameters and configurations.
+def train(run_name):
+
     
-    @param exp_name The `train` function you provided seems to be a script for training a machine
-    learning model using PyTorch Lightning and MLflow. It takes an experiment name (`exp_name`) as input
-    to specify which experiment configuration to use for training.
-    """
-    
-    experiment = experiments[exp_name]
+    experiment = experiments[run_name]
     
     run_name = experiment['run_name']
     model_name = experiment['model_name']
@@ -62,19 +67,19 @@ def train(exp_name):
     
     
     mlflow.set_experiment(experiment_name)
+    
+    runs = mlflow.search_runs(
+        experiment_names=[experiment_name], 
+        filter_string = f'run_name = "{run_name}"'
+        )
+    
+    for run_id in runs['run_id']:
+        mlflow.delete_run(run_id=run_id)
+    
     autolog(
-        registered_model_name = model_name
+        registered_model_name = f'model_{run_name}'
         )
     with mlflow.start_run(run_name=run_name, log_system_metrics = True):
-        runs = mlflow.search_runs(
-            experiment_names=[experiment_name], 
-            filter_string = f'run_name = "{run_name}"', 
-            order_by = ['params.run_version DESC']
-            )
-        if len(runs) == 1:
-            mlflow.log_param('run_version', 1)
-        else:
-            mlflow.log_param('run_version', int(runs['params.run_version'][0])+1)
             
         mlflow.log_params(data_module_cfg['params'])
         #training
@@ -84,20 +89,8 @@ def train(exp_name):
         )
     
     
-def predict(exp_name, version = None):    
-    """
-    This Python function `predict` loads a trained PyTorch model from MLflow, performs testing and
-    prediction using the model, and logs evaluation metrics using MLflow.
-    
-    @param exp_name The `exp_name` parameter in the `predict` function is used to specify the name of
-    the experiment for which you want to make predictions. This experiment should be defined in the
-    `experiments` dictionary that contains information about the experiment such as the run name,
-    experiment name, data module, save
-    @param version The `version` parameter in the `predict` function is used to specify a particular
-    version of the experiment to run. If a version is provided, the function will search for runs within
-    the specified experiment that match both the `run_name` and the provided `version`. If no version is
-    provided (
-    """
+def predict(exp_name):    
+
     experiment = experiments[exp_name]
     
     run_name = experiment['run_name']
@@ -120,17 +113,9 @@ def predict(exp_name, version = None):
     
     mlflow.set_experiment(experiment_name)
     
-    if version is None:
-        runs = mlflow.search_runs(
+    runs = mlflow.search_runs(
             experiment_names=[experiment_name],
             filter_string = f'run_name = "{run_name}"',
-            order_by=['params.version DESC']
-        )
-    else:
-        runs = mlflow.search_runs(
-            experiment_names=[experiment_name],
-            filter_string = f'run_name = "{run_name}" AND params.version = "{version}"',
-            order_by=['params.version DESC']
         )
     run_id = runs['run_id'][0]
     model_id = f'runs:/{run_id}/model'
@@ -140,11 +125,11 @@ def predict(exp_name, version = None):
     autolog()
     with mlflow.start_run(run_id=run_id):
         #Test
-        test_results = trainer.test(
-            model = modelModule,
-            datamodule = data_module
-        )
-        mlflow.log_metrics(test_results[0])
+        # test_results = trainer.test(
+        #     model = modelModule,
+        #     datamodule = data_module
+        # )
+        # mlflow.log_metrics(test_results[0])
         
         #Prediction
         trainer.predict(
@@ -153,25 +138,60 @@ def predict(exp_name, version = None):
             return_predictions = False
         )
     
-        #results
-        mask = load_sb_image(features.mask_path)
-        pred_results = save_pred_callback.final_image
-        true_results = rearrange(data_module.prediction_ds.dataset.label.data, 'l (h w) -> h w l', h = mask.shape[0], w = mask.shape[1])
-        true_results = true_results[:,:,data_module.n_previous_times:]
-        
-        matplotlib.rcParams.update({'font.size': 14})
-        mse, mae, norm_mse, norm_mae, mse__dict, mae__dict = evaluate_results(true_results, pred_results, mask, bins = [0, 1, 2, 5, 10, 80], run_name = exp_name)
-        mlflow.log_metrics({
-            'predicted_mse': mse,
-            'predicted_mae': mae,
-            'normalized_predicted_mse': norm_mse,
-            'normalized_predicted_mae': norm_mae,
-        })
-        #mse__dict['Experiment Name'] = exp_name
-        #mae__dict['Experiment Name'] = exp_name
-        #mlflow.log_table(mse__dict, 'mse_hist.json')
-        #mlflow.log_table(mae__dict, 'mae_hist.json')
+def evaluate(exp_name):    
+
+    experiment = experiments[exp_name]
     
+    run_name = experiment['run_name']
+    experiment_name = experiment['experiment_name']
+    data_module = experiment['data_module']
+    
+    data_module = data_module['class'](**data_module['params'])
+    
+    mlflow.set_experiment(experiment_name)
+    
+    runs = mlflow.search_runs(
+            experiment_names=[experiment_name],
+            filter_string = f'run_name = "{run_name}"',
+        )
+    run_id = runs['run_id'][0]
+    
+    mlflow.set_experiment(experiment_name)
+    autolog()
+    with mlflow.start_run(run_id=run_id):
+        with tempfile.TemporaryDirectory() as dir:
+            
+            mask = load_sb_image(features.mask_path)
+            
+            predict_path = mlflow.artifacts.download_artifacts(run_id=run_id, dst_path = dir, artifact_path= f'prediction/{run_name}.tif')
+            #predict_path = list(Path(predict_path).glob('*.tif'))[0]
+            predict_results = load_ml_image(predict_path)
+            
+            data_module.predict_dataloader()
+            true_results = data_module.prediction_ds.dataset.label.data
+            true_results = rearrange(data_module.prediction_ds.dataset.label.data, 'l (h w) -> h w l', h = mask.shape[0], w = mask.shape[1])
+            true_results = true_results[:,:,data_module.n_previous_times:]
+            
+            generate_images(true_results, predict_results, mask)
+            
+            generate_metric_figures(true_results, predict_results, mask, mean_squared_error, f'MSE', exp_name, [1e-6, 6000])
+            generate_metric_figures(true_results, predict_results, mask, mean_absolute_error, f'MAE', exp_name,  [1e-6, 600])
+            
+            generate_histograms(true_results, predict_results, mask, [0, 80], run_name)
+            
+            mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, False)
+            norm_mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True)
+            
+            mae = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, False)
+            norm_mae = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True)
+            
+            mlflow.log_metrics({
+                'predicted_mse': mse,
+                'predicted_mae': mae,
+                'normalized_predicted_mse': norm_mse,
+                'normalized_predicted_mae': norm_mae,
+            })
+        
 
 if __name__ == '__main__':
-    fire.Fire()
+    locals()[args.function](args.model_name)

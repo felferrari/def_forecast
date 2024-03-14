@@ -157,19 +157,28 @@ experiments['mlp_vector_base']['data_module']['params'].update({'train_num_worke
 
 experiments['mlp'] = deepcopy(experiments['mlp_vector_base'])
 
+experiments['zeros'] = deepcopy(experiments['mlp'])
+experiments['zeros']['run_name'] = 'zeros'
+
 #base Experiment
 experiments['mlp_0'] = deepcopy(experiments['mlp'])
 experiments['mlp_0']['run_name'] = 'mlp_0'
 
 #Reweighting
 experiments['mlp_1'] = deepcopy(experiments['mlp'])
+experiments['mlp_1']['run_name'] = 'mlp_1'
 experiments['mlp_1']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
-#experiments['mlp_1']['data_module']['params']['label_weights'] = [1, 5, 50, 100, 500, 1000]
 
+#Resampling
 experiments['mlp_2'] = deepcopy(experiments['mlp'])
+experiments['mlp_2']['run_name'] = 'mlp_2'
+experiments['mlp_2']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
-experiments['mlp_2'] = deepcopy(experiments['mlp'])
-
+#Reweighting and Resampling
+experiments['mlp_3'] = deepcopy(experiments['mlp'])
+experiments['mlp_3']['run_name'] = 'mlp_3'
+experiments['mlp_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+experiments['mlp_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 # train_samples_cond = [
 #     None,
 #     [0],

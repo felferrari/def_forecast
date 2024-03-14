@@ -11,8 +11,9 @@ from multiprocessing import Pool
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from einops import rearrange
+from einops import rearrange, repeat
 import mlflow
+import matplotlib
 
 def remove_outliers(img, signficance = 0.01):
     outliers = np.quantile(img, [signficance, 1-signficance], axis = (0,1))
@@ -303,64 +304,65 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     - `norm_mae`: Normalized Mean Absolute Error between the normalized reference and prediction data
     """
     #evaluate metrics
+    plt.style.use('seaborn-v0_8-deep')
     original_shape = reference.shape[:2]
     ref_flatten_mask = rearrange(reference, 'h w c -> (h w) c')[mask.flatten() == 1]
     pred_flatten_mask = rearrange(predictions, 'h w c -> (h w) c')[mask.flatten() == 1]
     mse = mean_squared_error(ref_flatten_mask, pred_flatten_mask)
     mae = mean_absolute_error(ref_flatten_mask, pred_flatten_mask)
     
-    fig = plt.figure()
-    plt.hist(ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
-    plt.title('Reference Histogram')
-    mlflow.log_figure(fig, f'figures/hist_reference_{run_name}.png')
-    plt.close(fig)
-    
-    fig = plt.figure()
-    plt.hist(pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
+    matplotlib.rcParams.update({'font.size': 14})
+    fig = plt.figure(figsize=(14, 6))
+    plt.hist([ref_flatten_mask.flatten(), pred_flatten_mask.flatten()], label = ['Reference', 'Prediction'], color = ['red', 'blue'],bins = 80, log=True, rwidth = 0.9, range = [0, 80])
     plt.title('Prediction Histogram')
-    mlflow.log_figure(fig, f'figures/hist_prediction_{run_name}.png')
+    plt.legend(loc='upper right')
+    mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
     plt.close(fig)
-    
-    
     #metrics with bins
+    
     mse__dict = evaluate_bins(ref_flatten_mask, pred_flatten_mask, bins, mean_squared_error)
     mae__dict = evaluate_bins(ref_flatten_mask, pred_flatten_mask, bins, mean_absolute_error)
     
-    
-    fig = plt.figure()
-    plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
+    matplotlib.rcParams.update({'font.size': 12})
+    fig, ax= plt.subplots(figsize = (10, 6))
+    bar = plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
     plt.xticks(range(len(mse__dict)), list(mse__dict.keys()))
-    plt.xlabel('bins values (Km2)')
+    plt.xlabel('Reference Values Bins (Km2)')
+    ax.bar_label(bar, fmt='{:,.3f}')
     plt.ylabel('MSE')
     plt.ylim([0,600])
     mlflow.log_figure(fig, f'figures/bar_mse_{run_name}.png')
     plt.close(fig)
     
-    fig = plt.figure()
-    plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
+    fig, ax= plt.subplots(figsize = (10, 6))
+    bar = plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
     plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
-    plt.xlabel('bins values (Km2)')
+    plt.xlabel('Reference Values Bins (Km2)')
+    ax.bar_label(bar, fmt='{:,.3f}')
     plt.ylabel('MAE')
     plt.ylim([0,20])
     mlflow.log_figure(fig, f'figures/bar_mae_{run_name}.png')
     plt.close(fig)
     
-    fig, ax= plt.subplots()
-    plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
+    
+    fig, ax= plt.subplots(figsize = (10, 6))
+    bar = plt.bar(range(len(mse__dict)), list(mse__dict.values()), align='center')
     plt.xticks(range(len(mse__dict)), list(mse__dict.keys()))
-    plt.xlabel('bins values (Km2)')
+    plt.xlabel('Reference Values Bins (Km2)')
     plt.ylabel('MSE (Log)')
     ax.set_yscale('log')
+    ax.bar_label(bar, fmt='{:,.3f}')
     plt.ylim([1e-4,5000])
     mlflow.log_figure(fig, f'figures/bar_log_mse_{run_name}.png')
     plt.close(fig)
     
-    fig, ax= plt.subplots()
-    plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
+    fig, ax= plt.subplots(figsize = (10, 6))
+    bar = plt.bar(range(len(mae__dict)), list(mae__dict.values()), align='center')
     plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
-    plt.xlabel('bins values (Km2)')
+    plt.xlabel('Reference Values Bins (Km2)')
     plt.ylabel('MAE (Log)')
     ax.set_yscale('log')
+    ax.bar_label(bar, fmt='{:,.3f}')
     plt.ylim([1e-3,50])
     mlflow.log_figure(fig, f'figures/bar_log_mae_{run_name}.png')
     plt.close(fig)
@@ -420,9 +422,11 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
         
         
         fig = plt.figure()
-        single_image = np.stack([ref_i_norm, pred_i_norm, 0.5*(1-mask)], axis=-1)
+        single_image = np.stack([ref_i_norm, pred_i_norm, (1-mask)], axis=-1)
+        single_image[mask == 0] = [1,1,1]
         plt.imshow(single_image)
         plt.axis("off")
+        plt.title(f'Normalized Prediction (Green) and Reference (Red)')
         mlflow.log_figure(fig, f'single/time_{i:02d}_{run_name}.png')
         #plt.savefig(path_to_save / f'single_{i}.jpg')
         plt.close(fig)
@@ -441,19 +445,15 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     norm_mse = mean_squared_error(norm_ref_flatten_mask, norm_pred_flatten_mask)
     norm_mae = mean_absolute_error(norm_ref_flatten_mask, norm_pred_flatten_mask)
     
-    fig = plt.figure()
-    plt.hist(norm_ref_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
-    plt.title('Normalized Reference Histogram')
-    mlflow.log_figure(fig, f'figures/hist_norm_reference_{run_name}.png')
+    matplotlib.rcParams.update({'font.size': 14})
+    fig = plt.figure(figsize=(14, 6))
+    plt.hist([norm_ref_flatten_mask.flatten(), norm_pred_flatten_mask.flatten()], label = ['Reference', 'Prediction'], color = ['red', 'blue'], bins = 80, log=True, rwidth = 0.9, range = [0, 1])
+    plt.title('Normalized Prediction and Reference Histograms')
+    plt.legend(loc='upper right')
+    mlflow.log_figure(fig, f'figures/norm_hist_{run_name}.png')
     plt.close(fig)
     
-    fig = plt.figure()
-    plt.hist(norm_pred_flatten_mask.flatten(), bins = 50, log=True, rwidth = 0.9)
-    plt.title('Normalized Prediction Histogram')
-    mlflow.log_figure(fig, f'figures/hist_norm_prediction_{run_name}.png')
-    plt.close(fig)
-    
-    
+        
     
     fig = plt.figure(figsize=(12, 5))
     plt.bar(range(len(mse_list)), mse_list)
@@ -502,3 +502,106 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     plt.close(fig)
     
     return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict
+
+def generate_images(true_results, predict_results, mask):
+    matplotlib.rcParams.update({'font.size': 12})
+    n_lags = true_results.shape[-1]
+    for lag_i in range(n_lags):
+        true_i = true_results[:,:,lag_i]
+        predict_i = predict_results[:,:,lag_i]
+        
+        true_i = (true_i - true_i.min()) / (true_i.max() - true_i.min())
+        predict_i = (predict_i - predict_i.min()) / (predict_i.max() - predict_i.min())
+            
+        fig = plt.figure()
+        image = np.stack([true_i, predict_i, np.zeros_like(predict_i)], axis=-1)
+        image [mask == 0] = [1,1,1]
+        plt.imshow(image)
+        plt.axis("off")
+        plt.title(f'Normalized Prediction (Green) and Reference (Red)')
+        mlflow.log_figure(fig, f'images/comparison_{lag_i}.png')
+        #plt.savefig(path_to_save / f'single_{i}.jpg')
+        plt.close(fig)
+        
+def generate_metric_figures(true_results, predict_results, mask, metric, metric_name, run_name, y_limits, bins = [0, 1, 2, 5, 10], log = True):
+    matplotlib.rcParams.update({'font.size': 14})
+    true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
+    predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
+    
+    true_results_flatten = true_results_flatten[mask.flatten()==1]
+    predict_results_flatten = predict_results_flatten[mask.flatten()==1]
+    
+    bins_x = [f'{bins[0]}']
+    true_results_flatten_bin = true_results_flatten[true_results_flatten == bins[0]]
+    predict_results_flatten_bin = predict_results_flatten[true_results_flatten == bins[0]]
+    bins_y = [metric(true_results_flatten_bin, predict_results_flatten_bin)]
+        
+    for i, _ in enumerate(bins[:-1]):
+        bins_x.append(f'{bins[i]}-{bins[i+1]}')
+        true_results_flatten_bin = true_results_flatten[np.logical_and(true_results_flatten > bins[i], true_results_flatten <= bins[i+1])]
+        predict_results_flatten_bin = predict_results_flatten[np.logical_and(true_results_flatten > bins[i], true_results_flatten <= bins[i+1])]
+        bins_y.append(metric(true_results_flatten_bin, predict_results_flatten_bin))
+        
+    bins_x.append(f'{bins[-1]}<')
+    true_results_flatten_bin = true_results_flatten[true_results_flatten > bins[-1]]
+    predict_results_flatten_bin = predict_results_flatten[true_results_flatten > bins[-1]]
+    bins_y.append(metric(true_results_flatten_bin, predict_results_flatten_bin))
+    
+    fig, ax= plt.subplots(figsize = (10, 6))
+    #bar = plt.bar(bins_x, bins_y, align='center')
+    bar = plt.bar(range(len(bins_x)), bins_y, align='center')
+    plt.xticks(range(len(bins_x)), bins_x)
+    #plt.xticks(range(len(mae__dict)), list(mae__dict.keys()))
+    plt.xlabel('Reference Values Bins (Km2)')
+    y_label = f'{metric_name}'
+    if log:
+        ax.set_yscale('log')
+        y_label = f'{y_label} (Log)'
+    plt.ylabel(y_label)
+    ax.bar_label(bar, fmt='{:,.3f}')
+    plt.ylim(y_limits)
+    mlflow.log_figure(fig, f'figures/{metric_name}_{run_name}.png')
+    plt.close(fig)
+    
+    return bins_x, bins_y
+
+def generate_histograms(true_results, predict_results, mask, x_limits, run_name, log = True):
+    matplotlib.rcParams.update({'font.size': 14})
+    plt.style.use('seaborn-v0_8-deep')
+    
+    true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
+    predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
+    
+    true_results_flatten = true_results_flatten[mask.flatten()==1].flatten()
+    predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
+    
+    fig = plt.figure(figsize=(14, 6))
+    plt.hist([true_results_flatten, predict_results_flatten], 
+             label = ['Reference', 'Prediction'], 
+             color = ['red', 'blue'], 
+             bins = (x_limits[-1] - x_limits[0]), 
+             log=log, 
+             rwidth = 0.9, 
+             range = x_limits)
+    plt.title('Prediction Histogram')
+    plt.xlabel('Area (Km2)')
+    y_label = 'Count'
+    if log:
+        y_label = f'{y_label} (Log)'
+    plt.ylabel(y_label)
+    plt.legend(loc='upper right')
+    mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
+    plt.close(fig)
+    
+def evaluate_metric(true_results, predict_results, mask, metric, normalize = False):
+    true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
+    predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
+    
+    true_results_flatten = true_results_flatten[mask.flatten()==1].flatten()
+    predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
+    
+    if normalize:
+        true_results_flatten = (true_results_flatten - true_results_flatten.min()) / (true_results_flatten.max() - true_results_flatten.min())
+        predict_results_flatten = (predict_results_flatten - predict_results_flatten.min()) / (predict_results_flatten.max() - predict_results_flatten.min())
+    
+    return metric(true_results_flatten, predict_results_flatten)

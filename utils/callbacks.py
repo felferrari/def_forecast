@@ -76,9 +76,10 @@ class SaveVectorPrediction(BasePredictionWriter):
     
     def write_on_epoch_end(self, trainer: Trainer, pl_module: LightningModule, predictions: Sequence[Any], batch_indices: Sequence[Any]) -> None:
         self.final_image = rearrange(self.predicted_values, '(h w) c -> h w c', h = self.shape[0], w = self.shape[1])
-        
+        #self.final_image = np.zeros_like(self.final_image)
         if self.save_tiff:
             with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
+                #tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
+                tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}.tif'
                 save_geotiff(features.mask_path, tmp_file, self.final_image, 'float')
                 mlflow.log_artifact(tmp_file, 'prediction')

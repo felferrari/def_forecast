@@ -1,39 +1,6 @@
-python main.py predict mlp_samples_0
-python main.py predict mlp_samples_1
-python main.py predict mlp_samples_2
-python main.py predict mlp_samples_3
-python main.py predict mlp_samples_4
-python main.py predict mlp_samples_5
-python main.py predict mlp_samples_6
-python main.py predict mlp_samples_7
-python main.py predict mlp_samples_8
-python main.py predict mlp_samples_9
-python main.py predict mlp_samples_10
-python main.py predict mlp_samples_11
-python main.py predict mlp_samples_12
-python main.py predict mlp_weights_0
-python main.py predict mlp_weights_1
-python main.py predict mlp_weights_2
-python main.py predict mlp_weights_3
-python main.py predict mlp_weights_4
-python main.py predict mlp_weights_5
-python main.py predict mlp_weights_6
-python main.py predict mlp_weights_7
-python main.py predict mlp_weights_8
-python main.py predict mlp_weights_9
-python main.py predict mlp_weights_10
-python main.py predict mlp_weights_11
-python main.py predict mlp_weights_12
-python main.py predict mlp_weights_13
-python main.py predict mlp_weights_14
-python main.py predict mlp_weights_15
-python main.py predict mlp_weights_16
-python main.py predict mlp_weights_17
-python main.py predict mlp_weights_18
-python main.py predict mlp_weights_19
-python main.py predict mlp_weights_20
-python main.py predict mlp_weights_21
-python main.py predict mlp_weights_22
-python main.py predict mlp_weights_23
+./run.sh mlp_0
+./run.sh mlp_1
+./run.sh mlp_2
+./run.sh mlp_3
 
 
