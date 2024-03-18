@@ -259,5 +259,5 @@ experiments['transformer']['run_name'] = 'transformer'
 #     }
 # }
 
-experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
+#experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
 #experiments['transformer']['data_module']['params']['label_bins'] = [0]

@@ -99,5 +99,5 @@ class ModelModule(L.LightningModule):
         
 
     def configure_optimizers(self):
-        return self.optimizer(self.parameters(), **self.optimizer_params)
+        return self.optimizer(self.model.parameters(), **self.optimizer_params)
 
