@@ -97,3 +97,15 @@ class ResUnetRegressionClassifier(nn.Module):
         x = self.last_conv(x)
         x = self.last_act(x)
         return x
+    
+class TransformerDecoder(nn.Module):
+    def __init__(self, in_dim, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.reduce = nn.Linear(in_dim, 1)
+        self.activation = nn.ReLU()
+
+    
+    def forward(self, x):
+        x = self.reduce(x)
+        x = self.activation(x)
+        return x

@@ -1,4 +1,4 @@
-from .layers import ResUnetDecoder, ResUnetEncoder, ResUnetRegressionClassifier
+from .layers import ResUnetDecoder, ResUnetEncoder, ResUnetRegressionClassifier, TransformerDecoder
 from torch import nn
 import torch
 
@@ -37,4 +37,28 @@ class Mlp(nn.Module):
     def forward(self, x_dict):
         x = torch.cat([x_dict[x_k] for x_k in x_dict], dim = -1)
         x = self.mlp(x)
+        return x
+
+class TransformerVector(nn.Module):
+    def __init__(self, input_sample, n_layers, d_model, n_head, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        in_dim = 0
+        for sample_k in input_sample[0]:
+            in_dim += input_sample[0][sample_k].shape[0]
+        self.proj = nn.Linear(in_features=in_dim, out_features=d_model)
+        self.trans_layers = nn.ModuleList([
+            nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=n_head
+            )
+            for _ in range(n_layers)
+        ])
+        self.decoder = TransformerDecoder(in_dim=d_model)
+        
+    def forward(self, x_dict):
+        x = torch.cat([x_dict[x_k] for x_k in x_dict], dim = -1)
+        x = self.proj(x)
+        for layer in self.trans_layers:
+            x = layer(x)
+        x = self.decoder(x)
         return x

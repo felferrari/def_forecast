@@ -1,1 +1,1 @@
-./run.sh test
+./run.sh transformer
