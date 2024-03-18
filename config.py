@@ -1,4 +1,5 @@
-from models.models import Resunet, Mlp
+from models.models import Resunet, Mlp, TransformerVector
+from models.losses import RegressionFocalLoss
 from utils.image_datasets import ImageDataModule
 from utils.vector_datasets import VectorDataModule
 import torch
@@ -24,22 +25,32 @@ class default:
     label_bins = None
     label_weights = None
     features_list = [
-        'ArDS_24', 
-        'Biweekly', 
+        'ArDS_12', 
+        #'Biweekly', 
         #'AcAr', 
         #'CtDS', 
-        'DeAr', 
+        #'DeAr', 
         #'Cloud', 
         #'OcDS', 
         #'XQ', 
-        'XArDS', 
-        'XDeDS', 
+        #'XArDS', 
+        #'XDeDS', 
         #'DS', 
         #'DryMonths_0', 
         #'Coordinates_0,1', 
-        #'Distbd_0,1,2,3,4', 
-        #'Dvd_0', 
-        #'EF_0,1,2,3,4,5,6'
+        #'Distbd_0', #muito ruim
+        #'Distbd_1', #muito ruim
+        #'Distbd_2', #muito ruim
+        #'Distbd_3', #muito ruim
+        #'Distbd_4', #muito ruim
+        #'Dvd_0', #ruim
+        #'EF_0'
+        #'EF_1'
+        #'EF_2'
+        #'EF_3'
+        #'EF_4'
+        #'EF_5'
+        #'EF_6'
         ]  # first element is the target feature
 
 image_data_module = {
@@ -121,7 +132,7 @@ experiments = {
             'patience': 10,
             'accelerator' : 'gpu',
             'limit_train_batches': 1000,
-            'limit_val_batches': None,
+            'limit_val_batches': 1000,
             
         },
         'pred_params':{
@@ -211,135 +222,42 @@ experiments['test']['run_name'] = 'test'
 experiments['test']['data_module']['params']['normalize_data'] = False
 
                                     
-# train_samples_cond = [
-#     None,
-#     [0],
-#     [0, 1],
-#     [0, 5],
-#     [0, 10],
-#     [0, 20],
-#     [0, 1, 10],
-#     [0, 1, 20],
-#     [0, 5, 10],
-#     [0, 5, 20],
-#     [0, 10, 20],
-#     [0, 1, 5, 10],
-#     [0, 1, 5, 20]
-# ]
+#Transformer
+experiments['transformer_vector_base'] = deepcopy(experiments['base'])
+experiments['transformer_vector_base'].update({
+    'run_name': 'transformer',
+    'model_name': 'transformer',
+    'model': {
+        'class': TransformerVector,
+        'params':{
+            'n_layers': 6,
+            'n_head': 8,
+            'd_model': 512
+        }            
+    },
+    'optimizer' : {
+        'class' : torch.optim.Adam,
+        'params':{
+            'lr': 2e-7
+        }
+    },
+    'data_module': vector_data_module,
+    'save_pred_callback': vector_save_pred_callback,
+})
+experiments['transformer_vector_base']['data_module']['params'].update({'train_batch_size' : 128})
+experiments['transformer_vector_base']['data_module']['params'].update({'pred_batch_size' : 2048})
+experiments['transformer_vector_base']['data_module']['params'].update({'train_num_workers' : 4})
 
-# train_bins_weights = [
-#     {
-#         'bins': None,
-#         'weights': None
-#     },
-#     {
-#         'bins': [0],
-#         'weights': [1, 10]
-#     },
-#     {
-#         'bins': [0],
-#         'weights': [1, 100]
-#     },
-#     {
-#         'bins': [0],
-#         'weights': [1, 1000]
-#     },
-#     {
-#         'bins': [0],
-#         'weights': [1, 10000]
-#     },
-#     {
-#         'bins': [0, 1],
-#         'weights': [1, 10, 100]
-#     },
-#     {
-#         'bins': [0, 1],
-#         'weights': [1, 10, 1000]
-#     },
-#     {
-#         'bins': [0, 1],
-#         'weights': [1, 100, 1000]
-#     },
-#     {
-#         'bins': [0, 1],
-#         'weights': [1, 100, 10000]
-#     },
-#     {
-#         'bins': [0, 1],
-#         'weights': [1, 1000, 10000]
-#     },
-#     {
-#         'bins': [0, 5],
-#         'weights': [1, 10, 100]
-#     },
-#     {
-#         'bins': [0, 5],
-#         'weights': [1, 10, 1000]
-#     },
-#     {
-#         'bins': [0, 5],
-#         'weights': [1, 100, 1000]
-#     },
-#     {
-#         'bins': [0, 5],
-#         'weights': [1, 100, 10000]
-#     },
-#     {
-#         'bins': [0, 5],
-#         'weights': [1, 1000, 10000]
-#     },
-#     {
-#         'bins': [0, 10],
-#         'weights': [1, 10, 100]
-#     },
-#     {
-#         'bins': [0, 10],
-#         'weights': [1, 10, 1000]
-#     },
-#     {
-#         'bins': [0, 10],
-#         'weights': [1, 100, 1000]
-#     },
-#     {
-#         'bins': [0, 10],
-#         'weights': [1, 100, 10000]
-#     },
-#     {
-#         'bins': [0, 10],
-#         'weights': [1, 1000, 10000]
-#     },
-#     {
-#         'bins': [0, 1, 10],
-#         'weights': [1, 10, 100, 1000]
-#     },
-#     {
-#         'bins': [0, 1, 10],
-#         'weights': [1, 10, 1000, 10000]
-#     },
-#     {
-#         'bins': [0, 1, 10],
-#         'weights': [1, 10, 1000, 100000]
-#     },
-#     {
-#         'bins': [0, 1, 10],
-#         'weights': [1, 100, 1000, 10000]
+experiments['transformer'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer']['run_name'] = 'transformer'
+# experiments['transformer']['criterion'] = {
+#     'class': RegressionFocalLoss,
+#     'params':{
+#         'alpha': 2,
+#         'beta': 1,
+#         'reduction': 'none'
 #     }
-# ]
+# }
 
-# for i, train_weights in enumerate(train_bins_weights):
-#     experiments[f'mlp_weights_{i}'] = deepcopy(experiments['mlp'])
-#     experiments[f'mlp_weights_{i}']['run_name'] = f'mlp_weights_{i}'
-#     # experiments[f'mlp_weights_{i}']['data_module']['params'].update(
-#     #     {
-#     #         'label_bins' : train_weights['bins'],
-#     #         'label_weights' : train_weights['weights']
-#     #     }
-#     # )
-#     experiments[f'mlp_weights_{i}']['data_module']['params']['label_bins'] = train_weights['bins']
-#     experiments[f'mlp_weights_{i}']['data_module']['params']['label_weights'] = train_weights['weights']
-    
-# for i, train_samples in enumerate(train_samples_cond):
-#     experiments[f'mlp_samples_{i}'] = deepcopy(experiments['mlp'])
-#     experiments[f'mlp_samples_{i}']['run_name'] = f'mlp_samples_{i}'
-#     experiments[f'mlp_samples_{i}']['data_module']['params']['sample_bins'] = train_samples
-    
+experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
+#experiments['transformer']['data_module']['params']['label_bins'] = [0]
