@@ -8,8 +8,9 @@ import utils
 from copy import deepcopy
 
 class default:
-    n_prev_times = 12
-    n_train_times = 72
+    #n_prev_times = 12
+    time_0 = 24
+    n_train_times = 48
     n_val_times = 48
     n_test_times = 48
     patch_size = 32
@@ -22,15 +23,34 @@ class default:
     train_sample_bins = None
     label_bins = None
     label_weights = None
-    features_list = ['ArDS']  # first element is the target feature
+    features_list = [
+        'ArDS_24', 
+        'Biweekly', 
+        #'AcAr', 
+        #'CtDS', 
+        'DeAr', 
+        #'Cloud', 
+        #'OcDS', 
+        #'XQ', 
+        'XArDS', 
+        'XDeDS', 
+        #'DS', 
+        #'DryMonths_0', 
+        #'Coordinates_0,1', 
+        #'Distbd_0,1,2,3,4', 
+        #'Dvd_0', 
+        #'EF_0,1,2,3,4,5,6'
+        ]  # first element is the target feature
 
 image_data_module = {
     'class': ImageDataModule,
     'params':{
-        'n_previous_times' : default.n_prev_times,
+        #'n_previous_times' : default.n_prev_times,
+        'time_0' : default.time_0,
         'train_times' : default.n_train_times,
         'val_times' : default.n_val_times,
         'test_times' : default.n_test_times,
+        'test_time_0': default.time_0 + default.n_train_times + default.n_val_times,
         'patch_size' : default.patch_size,
         'train_overlap' : default.train_overlap,
         'train_batch_size' : default.train_batch_size,
@@ -43,7 +63,8 @@ image_data_module = {
 vector_data_module = {
     'class': VectorDataModule,
     'params':{
-        'n_previous_times' : default.n_prev_times,
+        #'n_previous_times' : default.n_prev_times,
+        'time_0' : default.time_0,
         'train_times' : default.n_train_times,
         'val_times' : default.n_val_times,
         'test_times' : default.n_test_times,
@@ -63,9 +84,10 @@ vector_data_module = {
 image_save_pred_callback = {
     'class' : SaveImagePrediction,
     'params':{
-        'n_prev' : default.n_prev_times,
+        #'n_prev' : default.n_prev_times,
         'patch_size' : default.patch_size,
         'test_times' : default.n_test_times,
+        'test_time_0': default.time_0 + default.n_train_times + default.n_val_times,
         'border_removal' : default.prediction_border_removal,
         'log_tiff' : True
     }
@@ -74,8 +96,9 @@ image_save_pred_callback = {
 vector_save_pred_callback = {
     'class' : SaveVectorPrediction,
     'params':{
-        'n_prev' : default.n_prev_times,
+        #'n_prev' : default.n_prev_times,
         'test_times' : default.n_test_times,
+        'test_time_0': default.time_0 + default.n_train_times + default.n_val_times,
         'log_tiff' : True
     }
 }
@@ -114,7 +137,7 @@ experiments['resunet_base'].update({
     'model': {
         'class': Resunet,
         'params':{
-            'in_depth' : default.n_prev_times,
+            #'in_depth' : default.n_prev_times,
             'depths': [32, 64, 128, 256],
         }            
     },
@@ -179,6 +202,15 @@ experiments['mlp_3'] = deepcopy(experiments['mlp'])
 experiments['mlp_3']['run_name'] = 'mlp_3'
 experiments['mlp_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
 experiments['mlp_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+
+#reweighting modificado
+experiments['test'] = deepcopy(experiments['mlp'])
+experiments['test']['run_name'] = 'test'
+#experiments['test']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+#experiments['test']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+experiments['test']['data_module']['params']['normalize_data'] = False
+
+                                    
 # train_samples_cond = [
 #     None,
 #     [0],

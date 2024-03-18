@@ -170,7 +170,7 @@ def evaluate(exp_name):
             data_module.predict_dataloader()
             true_results = data_module.prediction_ds.dataset.label.data
             true_results = rearrange(data_module.prediction_ds.dataset.label.data, 'l (h w) -> h w l', h = mask.shape[0], w = mask.shape[1])
-            true_results = true_results[:,:,data_module.n_previous_times:]
+            true_results = true_results[:,:,-data_module.test_times:]
             
             generate_images(true_results, predict_results, mask)
             

@@ -52,27 +52,28 @@ class SaveImagePrediction(BasePredictionWriter):
                 mlflow.log_artifact(tmp_file, 'prediction')
                 
 class SaveVectorPrediction(BasePredictionWriter):
-    def __init__(self, n_prev, test_times, log_tiff = False, **kwargs):
+    def __init__(self, test_time_0, test_times, log_tiff = False, **kwargs):
         super().__init__(write_interval = 'batch_and_epoch')
-        self.n_prev = n_prev
+        #self.n_prev = n_prev
         self.save_tiff = log_tiff
+        self.test_time_0 = test_time_0
         
         mask = load_sb_image(features.mask_path)
         self.shape = mask.shape
         
-        self.predicted_values = np.zeros(self.shape + (test_times - n_prev,), dtype=np.float64)
+        self.predicted_values = np.zeros(self.shape + (test_times,), dtype=np.float64)
         self.predicted_values = rearrange(self.predicted_values, 'h w c -> (h w) c')
                
     
     def write_on_batch_end(self, trainer: Trainer, pl_module: LightningModule, prediction: Any, batch_indices, batch: Any, batch_idx: int, dataloader_idx: int) -> None:
-        x_list, y_list, weight_list, vector_i_list, lag_i_list = batch
+        x_list, y_list, weight_list, lag_i_list, vector_i_list = batch
         for i in range(len(vector_i_list)):
             pred_i = prediction[i]
             lag_i = lag_i_list[i]
             vector_i = vector_i_list[i]
             weight_i = weight_list[i]
             
-            self.predicted_values[vector_i, lag_i-self.n_prev] = pred_i * weight_i
+            self.predicted_values[vector_i, lag_i- self.test_time_0] = pred_i * weight_i
     
     def write_on_epoch_end(self, trainer: Trainer, pl_module: LightningModule, predictions: Sequence[Any], batch_indices: Sequence[Any]) -> None:
         self.final_image = rearrange(self.predicted_values, '(h w) c -> h w c', h = self.shape[0], w = self.shape[1])
