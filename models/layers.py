@@ -107,7 +107,7 @@ class TransformerDecoder(nn.Module):
 
     
     def forward(self, x):
-        x = self.dropout(x)
+        #x = self.dropout(x)
         x = self.reduce(x)
         x = self.activation(x)
         return x
