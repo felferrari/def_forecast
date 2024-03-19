@@ -1,5 +1,4 @@
 from models.models import Resunet, Mlp, TransformerVector
-from models.losses import RegressionFocalLoss
 from utils.image_datasets import ImageDataModule
 from utils.vector_datasets import VectorDataModule
 import torch
