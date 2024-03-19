@@ -259,5 +259,31 @@ experiments['transformer']['run_name'] = 'transformer'
 #     }
 # }
 
-experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
+#experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
 #experiments['transformer']['data_module']['params']['label_bins'] = [0]
+
+experiments['transformer_0'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_0']['run_name'] = 'transformer_0'
+
+
+experiments['transformer_1'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_1']['run_name'] = 'transformer_1'
+experiments['transformer_1']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+
+experiments['transformer_2'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_2']['run_name'] = 'transformer_2'
+experiments['transformer_2']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+
+experiments['transformer_3'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_3']['run_name'] = 'transformer_3'
+experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+
+experiments['transformer_4'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_4']['run_name'] = 'transformer_4'
+experiments['transformer_4']['data_module']['params']['sample_bins'] = [0]
+
+experiments['transformer_5'] = deepcopy(experiments['transformer_vector_base'])
+experiments['transformer_5']['run_name'] = 'transformer_5'
+experiments['transformer_5']['data_module']['params']['sample_bins'] = [0]
+experiments['transformer_5']['data_module']['params']['features_list'] = ['ArDS_12', 'Biweekly', 'DeAr', 'XQ', 'XArDS', 'XDeDS'] 
