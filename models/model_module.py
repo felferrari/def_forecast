@@ -14,8 +14,6 @@ class ModelModule(L.LightningModule):
         self.criterion = criterion
         self.optimizer_params = optimizer_params
         self.optimizer = optimizer
-        self.test_mse = MeanSquaredError()
-        self.test_mae = MeanAbsoluteError()
         
         self.train_max, self.train_min = -math.inf, math.inf 
         self.val_max, self.val_min = -math.inf, math.inf
@@ -51,38 +49,7 @@ class ModelModule(L.LightningModule):
         self.log('val_lag_max', self.val_max)
         self.log('val_lag_min', self.val_min)
         
-    def on_test_start(self) -> None:
-        self.test_max, self.test_min = -math.inf, math.inf
     
-    def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
-        x, y, weight, lag_i, vec_i = batch
-        y_hat = self.model(x)
-        #y_hat = torch.zeros_like(y_hat)
-        loss = self.criterion(y_hat, y)
-        loss = (loss*weight).sum() / weight.sum()
-        self.log('test_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
-        self.test_min = min(self.test_min, lag_i.min().item())
-        self.test_max = max(self.test_max, lag_i.max().item())
-        
-        y_f = y.flatten()
-        y_hat_f = y_hat.flatten()
-        mask_f = weight.flatten()
-        
-        y_f = y_f[mask_f > 0]
-        y_hat_f = y_hat_f[mask_f > 0]
-        
-        self.test_mse.update(y_hat_f, y_f)
-        self.test_mae.update(y_hat_f, y_f)
-        return loss
-    
-    def on_test_epoch_end(self) -> None:
-        self.log('test_lag_max', self.test_max)
-        self.log('test_lag_min', self.test_min)
-        self.log('test_mse', self.test_mse.compute())
-        self.log('test_mae', self.test_mae.compute())
-        self.test_mse.reset()
-        self.test_mae.reset()
-        
     def on_predict_start(self) -> None:
         self.pred_max, self.pred_min = -math.inf, math.inf
     

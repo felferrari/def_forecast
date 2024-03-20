@@ -19,7 +19,6 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('function', type = str, choices=['train', 'predict', 'evaluate'])
 parser.add_argument('model_name', type=str)
-parser.add_argument('--version', type=int, required=False)
 
 args = parser.parse_args()
 
@@ -30,16 +29,12 @@ def train(run_name):
 
     
     experiment = experiments[run_name]
-    
-    run_name = experiment['run_name']
-    model_name = experiment['model_name']
     experiment_name = experiment['experiment_name']
     model = experiment['model']
     criterion = experiment['criterion']
     optimizer = experiment['optimizer']
     data_module_cfg = experiment['data_module']
     train_params = experiment['train_params']
-    
     
     data_module = data_module_cfg['class'](**data_module_cfg['params'])
     model['params']['input_sample'] = data_module.train_dataloader().dataset[0]
@@ -55,9 +50,10 @@ def train(run_name):
             verbose = True
         )
     ]
+
+    
     trainer = Trainer(
         accelerator = train_params['accelerator'],
-        
         logger = False,
         callbacks = callbacks,
         limit_train_batches=train_params['limit_train_batches'],
@@ -76,13 +72,14 @@ def train(run_name):
     for run_id in runs['run_id']:
         mlflow.delete_run(run_id=run_id)
     
-    autolog(
-        registered_model_name = f'model_{run_name}'
-        )
+
     with mlflow.start_run(run_name=run_name, log_system_metrics = True):
             
         mlflow.log_params(data_module_cfg['params'])
         #training
+        autolog(
+            registered_model_name = f'model_{run_name}'
+            )
         trainer.fit(
             model = modelModule,
             datamodule = data_module

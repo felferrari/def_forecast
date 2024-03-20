@@ -48,7 +48,6 @@ class default:
         #'EF_6'
         ]  # first element is the target feature
 
-
 vector_data_module = {
     'class': VectorDataModule,
     'params':{
@@ -123,9 +122,29 @@ experiments['mlp_vector_base'].update({
 
 experiments['mlp'] = deepcopy(experiments['mlp_vector_base'])
 
+experiments['zeros'] = deepcopy(experiments['mlp'])
+
 #base Experiment
 experiments['mlp_0'] = deepcopy(experiments['mlp'])
 
+#Reweighting
+experiments['mlp_1'] = deepcopy(experiments['mlp'])
+experiments['mlp_1']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+
+#Resampling
+experiments['mlp_2'] = deepcopy(experiments['mlp'])
+experiments['mlp_2']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+
+#Reweighting and Resampling
+experiments['mlp_3'] = deepcopy(experiments['mlp'])
+experiments['mlp_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+experiments['mlp_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+
+#reweighting modificado
+experiments['test'] = deepcopy(experiments['mlp'])
+#experiments['test']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
+#experiments['test']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
+experiments['test']['data_module']['params']['normalize_data'] = False
 
 # #Transformer
 # experiments['transformer_vector_base'] = deepcopy(experiments['base'])
