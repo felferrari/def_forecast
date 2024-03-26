@@ -2,6 +2,7 @@ from typing import Any
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 import lightning as L
 from torchmetrics import MeanAbsoluteError, MeanSquaredError
+from torchmetrics.classification import MulticlassF1Score, MulticlassPrecision, MulticlassRecall
 import torch
 import math
 import mlflow
@@ -19,6 +20,13 @@ class ModelModule(L.LightningModule):
         self.val_max, self.val_min = -math.inf, math.inf
         self.test_max, self.test_min = -math.inf, math.inf
         self.pred_max, self.pred_min = -math.inf, math.inf
+        
+        self.train_f1 = MulticlassF1Score(num_classes=2)
+        self.train_precision = MulticlassPrecision(num_classes=2)
+        self.train_recall = MulticlassRecall(num_classes=2)
+        self.val_f1 = MulticlassF1Score(num_classes=2)
+        self.val_precision = MulticlassPrecision(num_classes=2)
+        self.val_recall = MulticlassRecall(num_classes=2)
 
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
@@ -27,6 +35,9 @@ class ModelModule(L.LightningModule):
         loss = self.criterion(y_hat, y)
         loss = (loss*weight).sum() / weight.sum()
         self.log('train_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
+        self.train_f1(y_hat, y)
+        self.train_precision(y_hat, y)
+        self.train_recall(y_hat, y)
         self.train_min = min(self.train_min, lag_i.min().item())
         self.train_max = max(self.train_max, lag_i.max().item())
         return loss
@@ -34,6 +45,12 @@ class ModelModule(L.LightningModule):
     def on_train_epoch_end(self) -> None:
         self.log('train_lag_max', self.train_max)
         self.log('train_lag_min', self.train_min)
+        self.log('train_f1_epoch', self.train_f1.compute(), prog_bar=True, on_epoch=True)
+        self.log('train_precision_epoch', self.train_precision.compute(), prog_bar=False, on_epoch=True)
+        self.log('train_recall_epoch', self.train_recall.compute(), prog_bar=False, on_epoch=True)
+        self.train_f1.reset()
+        self.train_precision.reset()
+        self.train_recall.reset()
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
@@ -41,6 +58,9 @@ class ModelModule(L.LightningModule):
         loss = self.criterion(y_hat, y)
         loss = (loss*weight).sum() / weight.sum()
         self.log('val_loss', loss, prog_bar=True, on_epoch=True, on_step=False)
+        self.val_f1(y_hat, y)
+        self.val_precision(y_hat, y)
+        self.val_recall(y_hat, y)
         self.val_min = min(self.val_min, lag_i.min().item())
         self.val_max = max(self.val_max, lag_i.max().item())
         return loss
@@ -48,6 +68,12 @@ class ModelModule(L.LightningModule):
     def on_validation_epoch_end(self) -> None:
         self.log('val_lag_max', self.val_max)
         self.log('val_lag_min', self.val_min)
+        self.log('val_f1_epoch', self.val_f1.compute(), prog_bar=True, on_epoch=True)
+        self.log('val_precision_epoch', self.val_precision.compute(), prog_bar=False, on_epoch=True)
+        self.log('val_recall_epoch', self.val_recall.compute(), prog_bar=False, on_epoch=True)
+        self.val_f1.reset()
+        self.val_precision.reset()
+        self.val_recall.reset()
         
     
     def on_predict_start(self) -> None:

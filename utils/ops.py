@@ -503,15 +503,15 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     
     return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict
 
-def generate_images(true_results, predict_results, mask):
+def generate_images(true_results, predict_results, mask, eps = 1e-7):
     matplotlib.rcParams.update({'font.size': 12})
     n_lags = true_results.shape[-1]
     for lag_i in range(n_lags):
         true_i = true_results[:,:,lag_i]
         predict_i = predict_results[:,:,lag_i]
         
-        true_i = (true_i - true_i.min()) / (true_i.max() - true_i.min())
-        predict_i = (predict_i - predict_i.min()) / (predict_i.max() - predict_i.min())
+        true_i = (true_i - true_i.min() + eps) / (true_i.max() - true_i.min() + eps)
+        predict_i = (predict_i - predict_i.min() + eps) / (predict_i.max() - predict_i.min() + eps)
             
         fig = plt.figure()
         image = np.stack([true_i, predict_i, np.zeros_like(predict_i)], axis=-1)

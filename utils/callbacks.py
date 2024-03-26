@@ -4,7 +4,7 @@ from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import BasePredictionWriter
 from pathlib import Path
 import numpy as np
-import features
+import datasets.features as features
 from utils.ops import load_sb_image, save_geotiff
 from einops import rearrange
 import mlflow
@@ -52,10 +52,9 @@ class SaveImagePrediction(BasePredictionWriter):
                 mlflow.log_artifact(tmp_file, 'prediction')
                 
 class SaveVectorPrediction(BasePredictionWriter):
-    def __init__(self, test_time_0, test_times, log_tiff = False, **kwargs):
+    def __init__(self, test_time_0, test_times, **kwargs):
         super().__init__(write_interval = 'batch_and_epoch')
         #self.n_prev = n_prev
-        self.save_tiff = log_tiff
         self.test_time_0 = test_time_0
         
         mask = load_sb_image(features.mask_path)
@@ -78,9 +77,4 @@ class SaveVectorPrediction(BasePredictionWriter):
     def write_on_epoch_end(self, trainer: Trainer, pl_module: LightningModule, predictions: Sequence[Any], batch_indices: Sequence[Any]) -> None:
         self.final_image = rearrange(self.predicted_values, '(h w) c -> h w c', h = self.shape[0], w = self.shape[1])
         #self.final_image = np.zeros_like(self.final_image)
-        if self.save_tiff:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                #tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}_{uuid.uuid4()}.tif'
-                tmp_file = Path(tmp_dir) / f'{mlflow.active_run().info.run_name}.tif'
-                save_geotiff(features.mask_path, tmp_file, self.final_image, 'float')
-                mlflow.log_artifact(tmp_file, 'prediction')
+

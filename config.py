@@ -1,10 +1,9 @@
-from models.models import Resunet, Mlp, TransformerVector
-from utils.image_datasets import ImageDataModule
-from utils.vector_datasets import VectorDataModule
+from models.vector.classification import MlpClassification, ClassificationModelModule, TransformerClassification
+from models.vector.regression import MlpRegression, RegressionModelModule, TransformerRegression
+from datasets.vector import classification as vector_classification
+from datasets.vector import regression as vector_regression
 import torch
 from utils.callbacks import SaveImagePrediction, SaveVectorPrediction
-import models
-import utils
 from copy import deepcopy
 
 class default:
@@ -14,22 +13,22 @@ class default:
     n_val_times = 48
     n_test_times = 48
     train_batch_size = 128
-    train_num_workers = 4
+    train_num_workers = 8
     pred_batch_size = 2048
     train_sample_bins = None
     label_bins = None
     label_weights = None
     features_list = [
         'ArDS_12', 
-        #'Biweekly', 
+        'Biweekly', 
         #'AcAr', 
         #'CtDS', 
-        #'DeAr', 
+        'DeAr', 
         #'Cloud', 
         #'OcDS', 
-        #'XQ', 
-        #'XArDS', 
-        #'XDeDS', 
+        'XQ', 
+        'XArDS', 
+        'XDeDS', 
         #'DS', 
         #'DryMonths_0', 
         #'Coordinates_0,1', 
@@ -48,9 +47,8 @@ class default:
         #'EF_6'
         ]  # first element is the target feature
 
-
-vector_data_module = {
-    'class': VectorDataModule,
+cls_vector_data_module = {
+    'class': vector_classification.DataModule,
     'params':{
         #'n_previous_times' : default.n_prev_times,
         'time_0' : default.time_0,
@@ -61,21 +59,43 @@ vector_data_module = {
         'train_num_workers' : default.train_num_workers,
         'features_list' : default.features_list,
         'pred_batch_size' : default.pred_batch_size,
-        'sample_bins' : default.train_sample_bins,
-        'label_bins' : default.label_bins,
-        #'label_weights' : default.label_weights,
         'normalize_data' : True,
         'normalize_label' : False
     }
 }
 
-vector_save_pred_callback = {
+cls_vector_save_pred_callback = {
     'class' : SaveVectorPrediction,
     'params':{
         #'n_prev' : default.n_prev_times,
+        'test_time_0': default.time_0, #  + default.n_train_times + default.n_val_times
+        'test_times' : default.n_test_times + default.n_train_times + default.n_val_times
+    }
+}
+
+reg_vector_data_module = {
+    'class': vector_regression.DataModule,
+    'params':{
+        #'n_previous_times' : default.n_prev_times,
+        'time_0' : default.time_0,
+        'train_times' : default.n_train_times,
+        'val_times' : default.n_val_times,
         'test_times' : default.n_test_times,
+        'train_batch_size' : default.train_batch_size,
+        'train_num_workers' : default.train_num_workers,
+        'features_list' : default.features_list,
+        'pred_batch_size' : default.pred_batch_size,
+        'normalize_data' : True,
+        'normalize_label' : False
+    }
+}
+
+reg_vector_save_pred_callback = {
+    'class' : SaveVectorPrediction,
+    'params':{
+        #'n_prev' : default.n_prev_times,
         'test_time_0': default.time_0 + default.n_train_times + default.n_val_times,
-        'log_tiff' : True
+        'test_times' : default.n_test_times
     }
 }
 
@@ -83,18 +103,14 @@ experiments = {
     'base':{
         'experiment_name': 'Deforestation Prediction',
         
-        'criterion': {
-            'class' : torch.nn.MSELoss,
-            'params':{
-                'reduction': 'none'
-            }
-        },
+        'cls_model_module': ClassificationModelModule,
+        'reg_model_module': RegressionModelModule,
         
         'train_params':{
             'patience': 10,
             'accelerator' : 'gpu',
-            'limit_train_batches': 1000,
-            'limit_val_batches': 1000,
+            'limit_train_batches': None,
+            'limit_val_batches': None,
             
         },
         'pred_params':{
@@ -105,20 +121,46 @@ experiments = {
 
 experiments['mlp_vector_base'] = deepcopy(experiments['base'])
 experiments['mlp_vector_base'].update({
-    'model': {
-        'class': Mlp,
+    'cls_model': {
+        'class': MlpClassification,
         'params':{
             'layers':[64, 256, 512, 256, 128]
-        }            
+        }
     },
-    'optimizer' : {
+    'cls_criterion': {
+        'class' : torch.nn.CrossEntropyLoss,
+        'params':{
+            'reduction': 'none'
+        }
+    },        
+    'cls_optimizer' : {
+        'class' : torch.optim.Adam,
+        'params':{
+            'lr': 1e-6
+        }
+    },
+    'reg_model': {
+        'class': MlpRegression,
+        'params':{
+            'layers':[64, 256, 512, 256, 128]
+        }
+    },
+    'reg_criterion': {
+        'class' : torch.nn.MSELoss,
+        'params':{
+            'reduction': 'none'
+        }
+    },        
+    'reg_optimizer' : {
         'class' : torch.optim.Adam,
         'params':{
             'lr': 2e-7
         }
     },
-    'data_module': vector_data_module,
-    'save_pred_callback': vector_save_pred_callback,
+    'cls_data_module': cls_vector_data_module,
+    'cls_save_pred_callback': cls_vector_save_pred_callback,
+    'reg_data_module': reg_vector_data_module,
+    'reg_save_pred_callback': reg_vector_save_pred_callback,
 })
 
 experiments['mlp'] = deepcopy(experiments['mlp_vector_base'])
@@ -126,69 +168,56 @@ experiments['mlp'] = deepcopy(experiments['mlp_vector_base'])
 #base Experiment
 experiments['mlp_0'] = deepcopy(experiments['mlp'])
 
+#Transformer
+experiments['transformer_vector_base'] = deepcopy(experiments['base'])
+experiments['transformer_vector_base'].update({
+    'cls_model': {
+        'class': TransformerClassification,
+        'params':{
+            'n_layers': 6, 
+            'd_model': 512, 
+            'n_head': 8
+        }
+    },
+    'cls_criterion': {
+        'class' : torch.nn.CrossEntropyLoss,
+        'params':{
+            'reduction': 'none'
+        }
+    },        
+    'cls_optimizer' : {
+        'class' : torch.optim.Adam,
+        'params':{
+            'lr': 1e-6
+        }
+    },
+    'reg_model': {
+        'class': TransformerRegression,
+        'params':{
+            'n_layers': 6, 
+            'd_model': 512, 
+            'n_head': 8
+        }
+    },
+    'reg_criterion': {
+        'class' : torch.nn.MSELoss,
+        'params':{
+            'reduction': 'none'
+        }
+    },        
+    'reg_optimizer' : {
+        'class' : torch.optim.Adam,
+        'params':{
+            'lr': 5e-7
+        }
+    },
+    'cls_data_module': cls_vector_data_module,
+    'cls_save_pred_callback': cls_vector_save_pred_callback,
+    'reg_data_module': reg_vector_data_module,
+    'reg_save_pred_callback': reg_vector_save_pred_callback,
+})
 
-# #Transformer
-# experiments['transformer_vector_base'] = deepcopy(experiments['base'])
-# experiments['transformer_vector_base'].update({
-#     'run_name': 'transformer',
-#     'model_name': 'transformer',
-#     'model': {
-#         'class': TransformerVector,
-#         'params':{
-#             'n_layers': 6,
-#             'n_head': 8,
-#             'd_model': 512
-#         }            
-#     },
-#     'optimizer' : {
-#         'class' : torch.optim.Adam,
-#         'params':{
-#             'lr': 2e-7
-#         }
-#     },
-#     'data_module': vector_data_module,
-#     'save_pred_callback': vector_save_pred_callback,
-# })
-# experiments['transformer_vector_base']['data_module']['params'].update({'train_batch_size' : 128})
-# experiments['transformer_vector_base']['data_module']['params'].update({'pred_batch_size' : 2048})
-# experiments['transformer_vector_base']['data_module']['params'].update({'train_num_workers' : 4})
+experiments['transformer'] = deepcopy(experiments['transformer_vector_base'])
 
-# experiments['transformer'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer']['run_name'] = 'transformer'
-# # experiments['transformer']['criterion'] = {
-# #     'class': RegressionFocalLoss,
-# #     'params':{
-# #         'alpha': 2,
-# #         'beta': 1,
-# #         'reduction': 'none'
-# #     }
-# # }
-
-# #experiments['transformer']['data_module']['params']['sample_bins'] = [0, 1]
-# #experiments['transformer']['data_module']['params']['label_bins'] = [0]
-
-# experiments['transformer_0'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_0']['run_name'] = 'transformer_0'
-
-
-# experiments['transformer_1'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_1']['run_name'] = 'transformer_1'
-# experiments['transformer_1']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
-
-# experiments['transformer_2'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_2']['run_name'] = 'transformer_2'
-# experiments['transformer_2']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
-
-# experiments['transformer_3'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_3']['run_name'] = 'transformer_3'
-# experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
-# experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
-
-# experiments['transformer_4'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_4']['run_name'] = 'transformer_4'
-# experiments['transformer_4']['data_module']['params']['sample_bins'] = [0]
-
-# experiments['transformer_5'] = deepcopy(experiments['transformer_vector_base'])
-# experiments['transformer_5']['run_name'] = 'transformer_5'
-# experiments['transformer_5']['data_module']['params']['sample_bins'] = [0]
-# experiments['transformer_5']['data_module']['params']['features_list'] = ['ArDS_12', 'Biweekly', 'DeAr', 'XQ', 'XArDS', 'XDeDS'] 
+#base Experiment
+experiments['transformer_0'] = deepcopy(experiments['transformer'])

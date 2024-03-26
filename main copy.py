@@ -7,7 +7,7 @@ import config
 import fire
 import mlflow
 from mlflow.pytorch import autolog
-import features 
+import datasets.features as features 
 from einops import rearrange
 import matplotlib
 

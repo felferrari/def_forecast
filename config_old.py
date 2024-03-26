@@ -1,6 +1,6 @@
 from models.models import Resunet, Mlp, TransformerVector
 from utils.image_datasets import ImageDataModule
-from utils.vector_datasets import VectorDataModule
+from datasets.vector.classification import DataModule
 import torch
 from utils.callbacks import SaveImagePrediction, SaveVectorPrediction
 import models
@@ -71,7 +71,7 @@ image_data_module = {
 }
 
 vector_data_module = {
-    'class': VectorDataModule,
+    'class': DataModule,
     'params':{
         #'n_previous_times' : default.n_prev_times,
         'time_0' : default.time_0,

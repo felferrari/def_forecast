@@ -99,15 +99,16 @@ class ResUnetRegressionClassifier(nn.Module):
         return x
     
 class TransformerDecoder(nn.Module):
-    def __init__(self, in_dim, *args, **kwargs) -> None:
+    def __init__(self, in_dim, out_dim, activation, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.dropout = nn.Dropout1d(p=0.25)
-        self.reduce = nn.Linear(in_dim, 1)
-        self.activation = nn.ReLU()
+        self.reduce = nn.Linear(in_dim, out_dim)
+        self.activation = activation
 
     
     def forward(self, x):
         #x = self.dropout(x)
         x = self.reduce(x)
-        x = self.activation(x)
+        if self.activation is not None:
+            x = self.activation(x)  
         return x
