@@ -116,7 +116,7 @@ class TrainDataset(Dataset):
             weight = 1
         else:
             label = np.array(1, dtype=np.int64)
-            weight = 10
+            weight = 1
             
         return data, label, weight, lag_i, vector_i
 
