@@ -565,7 +565,7 @@ def generate_metric_figures(true_results, predict_results, mask, metric, metric_
     
     return bins_x, bins_y
 
-def generate_histograms(true_results, predict_results, mask, x_limits, run_name, log = True):
+def generate_histograms(true_results, predict_results, mask, x_limits, run_name, log = True, normalize = False):
     matplotlib.rcParams.update({'font.size': 14})
     plt.style.use('seaborn-v0_8-deep')
     
@@ -575,6 +575,16 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
     true_results_flatten = true_results_flatten[mask.flatten()==1].flatten()
     predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
     
+    if normalize:
+        eps = 1e-7
+        true_max = 3*true_results_flatten.std()
+        true_results_flatten = np.clip(true_results_flatten, 0, true_max)
+        true_results_flatten = (true_results_flatten + eps) / (true_results_flatten.max() - true_results_flatten.min() + eps)
+        
+        pred_max = 3*pred_results_flatten.std()
+        pred_results_flatten = np.clip(pred_results_flatten, 0, pred_max)
+        pred_results_flatten = (pred_results_flatten + eps) / (pred_results_flatten.max() - pred_results_flatten.min() + eps)
+    
     fig = plt.figure(figsize=(14, 6))
     plt.hist([true_results_flatten, predict_results_flatten], 
              label = ['Reference', 'Prediction'], 
@@ -583,14 +593,20 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
              log=log, 
              rwidth = 0.9, 
              range = x_limits)
-    plt.title('Prediction Histogram')
+    if normalize:
+        plt.title('Normalized Prediction Histogram')
+    else:
+        plt.title('Prediction Histogram')
     plt.xlabel('Area (Km2)')
     y_label = 'Count'
     if log:
         y_label = f'{y_label} (Log)'
     plt.ylabel(y_label)
     plt.legend(loc='upper right')
-    mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
+    if normalize:
+        mlflow.log_figure(fig, f'figures/hist_{run_name}_norm.png')
+    else:
+        mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
     plt.close(fig)
     
 def evaluate_metric(true_results, predict_results, mask, metric, normalize = False):

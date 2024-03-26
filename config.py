@@ -6,6 +6,16 @@ from utils.callbacks import SaveImagePrediction, SaveVectorPrediction
 import models
 import utils
 from copy import deepcopy
+from itertools import chain, combinations
+
+
+def powerset(iterable, max = None):
+    "powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    if max is None:
+        return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
+    else:
+        return chain.from_iterable(combinations(s, r) for r in range(1, max+1))
 
 class default:
     #n_prev_times = 12
@@ -25,32 +35,61 @@ class default:
     label_weights = None
     features_list = [
         'ArDS_12', 
-        #'Biweekly', 
-        #'AcAr', 
-        #'CtDS', 
-        #'DeAr', 
-        #'Cloud', 
-        #'OcDS', 
-        #'XQ', 
-        #'XArDS', 
-        #'XDeDS', 
-        #'DS', 
-        #'DryMonths_0', 
-        #'Coordinates_0,1', 
-        #'Distbd_0', #muito ruim
-        #'Distbd_1', #muito ruim
-        #'Distbd_2', #muito ruim
-        #'Distbd_3', #muito ruim
-        #'Distbd_4', #muito ruim
-        #'Dvd_0', #ruim
-        #'EF_0'
-        #'EF_1'
-        #'EF_2'
-        #'EF_3'
-        #'EF_4'
-        #'EF_5'
-        #'EF_6'
+        # 'Biweekly', 
+        # 'AcAr', 
+        # 'CtDS', 
+        # 'DeAr', 
+        # 'Cloud', 
+        # 'OcDS', 
+        # 'XQ', 
+        # 'XArDS', 
+        # 'XDeDS', 
+        # 'DS', 
+        # 'DryMonths_0', 
+        # 'Coordinates_0,1', 
+        # 'Distbd_0', #muito ruim
+        # 'Distbd_1', #muito ruim
+        # 'Distbd_2', #muito ruim
+        # 'Distbd_3', #muito ruim
+        # 'Distbd_4', #muito ruim
+        # 'Dvd_0', #ruim
+        # 'EF_0'
+        # 'EF_1'
+        # 'EF_2'
+        # 'EF_3'
+        # 'EF_4'
+        # 'EF_5'
+        # 'EF_6'
         ]  # first element is the target feature
+    all_features_list = [
+        'ArDS_12', 
+        'Biweekly', 
+        'AcAr', 
+        'CtDS', 
+        'DeAr', 
+        'Cloud', 
+        'OcDS', 
+        'XQ', 
+        'XArDS', 
+        'XDeDS', 
+        #'DS', 
+        'DryMonths_0', 
+        'Coordinates_0,1', 
+        'Distbd_0', #muito ruim
+        'Distbd_1', #muito ruim
+        'Distbd_2', #muito ruim
+        'Distbd_3', #muito ruim
+        'Distbd_4', #muito ruim
+        'Dvd_0', #ruim
+        'EF_0',
+        'EF_1',
+        'EF_2',
+        'EF_3',
+        'EF_4',
+        'EF_5',
+        'EF_6',
+        ] 
+    
 
 image_data_module = {
     'class': ImageDataModule,
@@ -213,14 +252,7 @@ experiments['mlp_3']['run_name'] = 'mlp_3'
 experiments['mlp_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
 experiments['mlp_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
-#reweighting modificado
-experiments['test'] = deepcopy(experiments['mlp'])
-experiments['test']['run_name'] = 'test'
-#experiments['test']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
-#experiments['test']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
-experiments['test']['data_module']['params']['normalize_data'] = False
 
-                                    
 #Transformer
 experiments['transformer_vector_base'] = deepcopy(experiments['base'])
 experiments['transformer_vector_base'].update({
@@ -278,11 +310,12 @@ experiments['transformer_3']['run_name'] = 'transformer_3'
 experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
 experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
-experiments['transformer_4'] = deepcopy(experiments['transformer_vector_base'])
-experiments['transformer_4']['run_name'] = 'transformer_4'
-experiments['transformer_4']['data_module']['params']['sample_bins'] = [0]
 
-experiments['transformer_5'] = deepcopy(experiments['transformer_vector_base'])
-experiments['transformer_5']['run_name'] = 'transformer_5'
-experiments['transformer_5']['data_module']['params']['sample_bins'] = [0]
-experiments['transformer_5']['data_module']['params']['features_list'] = ['ArDS_12', 'Biweekly', 'DeAr', 'XQ', 'XArDS', 'XDeDS'] 
+for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 1)):
+    experiments[f'mlp_features_{i}'] = deepcopy(experiments['mlp'])
+    experiments[f'mlp_features_{i}']['run_name'] = f'mlp_features_{i}'
+    experiments[f'mlp_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
+    
+    experiments[f'transformer_features_{i}'] = deepcopy(experiments['transformer'])
+    experiments[f'transformer_features_{i}']['run_name'] = f'transformer_features_{i}'
+    experiments[f'transformer_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
