@@ -384,6 +384,7 @@ def evaluate_reg(run_name):
             generate_metric_figures(true_results, predict_results, mask, mean_absolute_error, f'MAE', run_name,  [1e-6, 600])
             
             generate_histograms(true_results, predict_results, mask, [0, 80], run_name)
+            generate_histograms(true_results, predict_results, mask, [0, 1], run_name, normalize=True)
             
             mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, False)
             norm_mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True)
