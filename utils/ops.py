@@ -506,12 +506,13 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
 def generate_images(true_results, predict_results, mask):
     matplotlib.rcParams.update({'font.size': 12})
     n_lags = true_results.shape[-1]
+    eps = 1e-7
     for lag_i in range(n_lags):
         true_i = true_results[:,:,lag_i]
         predict_i = predict_results[:,:,lag_i]
         
-        true_i = (true_i - true_i.min()) / (true_i.max() - true_i.min())
-        predict_i = (predict_i - predict_i.min()) / (predict_i.max() - predict_i.min())
+        true_i = (true_i - true_i.min() + eps) / (true_i.max() - true_i.min() + eps)
+        predict_i = (predict_i - predict_i.min() + eps) / (predict_i.max() - predict_i.min() + eps)
             
         fig = plt.figure()
         image = np.stack([true_i, predict_i, np.zeros_like(predict_i)], axis=-1)
@@ -576,20 +577,20 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
     predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
     
     if normalize:
-        eps = 1e-7
+        eps = 1e-12
         true_max = 3*true_results_flatten.std()
         true_results_flatten = np.clip(true_results_flatten, 0, true_max)
         true_results_flatten = (true_results_flatten + eps) / (true_results_flatten.max() - true_results_flatten.min() + eps)
         
-        pred_max = 3*pred_results_flatten.std()
-        pred_results_flatten = np.clip(pred_results_flatten, 0, pred_max)
-        pred_results_flatten = (pred_results_flatten + eps) / (pred_results_flatten.max() - pred_results_flatten.min() + eps)
+        pred_max = 3*predict_results_flatten.std()
+        predict_results_flatten = np.clip(predict_results_flatten, 0, pred_max)
+        predict_results_flatten = (predict_results_flatten + eps) / (predict_results_flatten.max() - predict_results_flatten.min() + eps)
     
     fig = plt.figure(figsize=(14, 6))
     plt.hist([true_results_flatten, predict_results_flatten], 
              label = ['Reference', 'Prediction'], 
              color = ['red', 'blue'], 
-             bins = (x_limits[-1] - x_limits[0]), 
+             bins = 50, 
              log=log, 
              rwidth = 0.9, 
              range = x_limits)
@@ -617,7 +618,8 @@ def evaluate_metric(true_results, predict_results, mask, metric, normalize = Fal
     predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
     
     if normalize:
-        true_results_flatten = (true_results_flatten - true_results_flatten.min()) / (true_results_flatten.max() - true_results_flatten.min())
-        predict_results_flatten = (predict_results_flatten - predict_results_flatten.min()) / (predict_results_flatten.max() - predict_results_flatten.min())
+        eps = 1e-12
+        true_results_flatten = (true_results_flatten - true_results_flatten.min() + eps) / (true_results_flatten.max() - true_results_flatten.min() + eps)
+        predict_results_flatten = (predict_results_flatten - predict_results_flatten.min() + eps) / (predict_results_flatten.max() - predict_results_flatten.min() + eps)
     
     return metric(true_results_flatten, predict_results_flatten)

@@ -60,6 +60,7 @@ def train(run_name):
         
         logger = False,
         callbacks = callbacks,
+        enable_progress_bar = False,
         limit_train_batches=train_params['limit_train_batches'],
         limit_val_batches=train_params['limit_val_batches']
         #max_epochs=2
@@ -108,6 +109,7 @@ def predict(exp_name):
     trainer = Trainer(
         accelerator = pred_params['accelerator'],
         logger = False,
+        enable_progress_bar=False,
         callbacks = callbacks,
     )
     

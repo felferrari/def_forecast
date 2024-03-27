@@ -13,9 +13,9 @@ def powerset(iterable, max = None):
     "powerset([1,2,3]) → () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
     s = list(iterable)
     if max is None:
-        return chain.from_iterable(combinations(s, r) for r in range(1, len(s)+1))
+        return chain.from_iterable(combinations(s, r) for r in range(0, len(s)+1))
     else:
-        return chain.from_iterable(combinations(s, r) for r in range(1, max+1))
+        return chain.from_iterable(combinations(s, r) for r in range(0, max+1))
 
 class default:
     #n_prev_times = 12
@@ -167,10 +167,10 @@ experiments = {
 
         
         'train_params':{
-            'patience': 10,
+            'patience': 20,
             'accelerator' : 'gpu',
             'limit_train_batches': 1000,
-            'limit_val_batches': 1000,
+            'limit_val_batches': 1.0, #1000,
             
         },
         'pred_params':{
@@ -269,7 +269,9 @@ experiments['transformer_vector_base'].update({
     'optimizer' : {
         'class' : torch.optim.Adam,
         'params':{
-            'lr': 2e-7
+            #'betas': (0.7, 0.9),
+            #'eps': 1e-20,
+            'lr': 1e-6
         }
     },
     'data_module': vector_data_module,
@@ -311,11 +313,13 @@ experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 
 experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
 
-for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 1)):
+for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 4)):
     experiments[f'mlp_features_{i}'] = deepcopy(experiments['mlp'])
     experiments[f'mlp_features_{i}']['run_name'] = f'mlp_features_{i}'
     experiments[f'mlp_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
+    #experiments[f'mlp_features_{i}']['data_module']['params']['sample_bins'] = [0]
     
     experiments[f'transformer_features_{i}'] = deepcopy(experiments['transformer'])
     experiments[f'transformer_features_{i}']['run_name'] = f'transformer_features_{i}'
     experiments[f'transformer_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
+    #experiments[f'transformer_features_{i}']['data_module']['params']['sample_bins'] = [0]

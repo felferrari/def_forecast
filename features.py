@@ -128,7 +128,8 @@ class FeatureData:
         self.filtered = False
         
     def normalize_data(self):
-        self.data = (self.data - self.min) / (self.max - self.min)
+        #self.data = (self.data - self.min) / (self.max - self.min)
+        self.data = (self.data - self.mean) / (self.std)
     
     def filter_period(self, first_lag, last_lag):
         assert not self.filtered, 'DataFeature only can be filtered once.'
