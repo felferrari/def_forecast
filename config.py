@@ -313,13 +313,13 @@ experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 
 experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
 
-for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 4)):
+for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 3)):
     experiments[f'mlp_features_{i}'] = deepcopy(experiments['mlp'])
     experiments[f'mlp_features_{i}']['run_name'] = f'mlp_features_{i}'
-    experiments[f'mlp_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
+    experiments[f'mlp_features_{i}']['data_module']['params']['features_list'] = list((default.all_features_list[0],) + feat_subset)
     #experiments[f'mlp_features_{i}']['data_module']['params']['sample_bins'] = [0]
     
     experiments[f'transformer_features_{i}'] = deepcopy(experiments['transformer'])
     experiments[f'transformer_features_{i}']['run_name'] = f'transformer_features_{i}'
-    experiments[f'transformer_features_{i}']['features'] = list((default.all_features_list[0],) + feat_subset)
+    experiments[f'transformer_features_{i}']['data_module']['params']['features_list'] = list((default.all_features_list[0],) + feat_subset)
     #experiments[f'transformer_features_{i}']['data_module']['params']['sample_bins'] = [0]
