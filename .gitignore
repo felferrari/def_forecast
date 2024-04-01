@@ -163,5 +163,5 @@ data
 lightning_logs
 .vscode
 experiments
-mlruns
+mlruns*
 checkpoints
