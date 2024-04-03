@@ -34,19 +34,19 @@ class default:
     label_bins = None
     label_weights = None
     features_list = [
-        'ArDS_12', 
-        # 'Biweekly', 
+        'ArDS_4', 
+        'Biweekly', 
         # 'AcAr', 
-        # 'CtDS', 
-        # 'DeAr', 
+        'CtDS', 
+        'DeAr', 
         # 'Cloud', 
         # 'OcDS', 
-        # 'XQ', 
-        # 'XArDS', 
-        # 'XDeDS', 
+        'XQ', 
+        'XArDS', 
+        'XDeDS', 
         # 'DS', 
-        # 'DryMonths_0', 
-        # 'Coordinates_0,1', 
+        #'DryMonths_0', 
+        #'Coordinates_0,1', 
         # 'Distbd_0', #muito ruim
         # 'Distbd_1', #muito ruim
         # 'Distbd_2', #muito ruim
@@ -151,8 +151,6 @@ vector_save_pred_callback = {
         'log_tiff' : True
     }
 }
-
-
 
 experiments = {
     'base':{
@@ -312,14 +310,3 @@ experiments['transformer_3']['run_name'] = 'transformer_3'
 experiments['transformer_3']['data_module']['params']['label_bins'] = [0, 1, 2, 5, 10]
 experiments['transformer_3']['data_module']['params']['sample_bins'] = [0, 1, 2, 5, 10]
 
-
-for i, feat_subset in enumerate(powerset(default.all_features_list[1:], max = 3)):
-    experiments[f'mlp_features_{i}'] = deepcopy(experiments['mlp'])
-    experiments[f'mlp_features_{i}']['run_name'] = f'mlp_features_{i}'
-    experiments[f'mlp_features_{i}']['data_module']['params']['features_list'] = list((default.all_features_list[0],) + feat_subset)
-    #experiments[f'mlp_features_{i}']['data_module']['params']['sample_bins'] = [0]
-    
-    experiments[f'transformer_features_{i}'] = deepcopy(experiments['transformer'])
-    experiments[f'transformer_features_{i}']['run_name'] = f'transformer_features_{i}'
-    experiments[f'transformer_features_{i}']['data_module']['params']['features_list'] = list((default.all_features_list[0],) + feat_subset)
-    #experiments[f'transformer_features_{i}']['data_module']['params']['sample_bins'] = [0]

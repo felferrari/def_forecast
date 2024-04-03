@@ -183,16 +183,38 @@ def evaluate(exp_name):
             generate_histograms(true_results, predict_results, mask, [0, 1], run_name, normalize=True)
             
             mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, False)
-            norm_mse = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True)
+            
             
             mae = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, False)
-            norm_mae = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True)
+            
+            
+            norm_mse_95 = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True, 95)
+            norm_mae_95 = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True, 95)
+            
+            norm_mse_99 = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True, 99)
+            norm_mae_99 = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True, 99)
+            
+            norm_mse_999 = evaluate_metric(true_results, predict_results, mask, mean_squared_error, True, 99.9)
+            norm_mae_999 = evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True, 99.9)
+            
+            norm_mse_9999= evaluate_metric(true_results, predict_results, mask, mean_squared_error, True, 99.99)
+            norm_mae_9999= evaluate_metric(true_results, predict_results, mask, mean_absolute_error, True, 99.99)
             
             mlflow.log_metrics({
                 'predicted_mse': mse,
                 'predicted_mae': mae,
-                'normalized_predicted_mse': norm_mse,
-                'normalized_predicted_mae': norm_mae,
+                'norm_mse_95': norm_mse_95,
+                'norm_mae_95': norm_mae_95,
+                
+                'norm_mse_99': norm_mse_99,
+                'norm_mae_99': norm_mae_99,
+                
+                'norm_mse_999': norm_mse_999,
+                'norm_mae_999': norm_mae_999,
+                
+                'norm_mse_9999': norm_mse_9999,
+                'norm_mae_9999': norm_mae_9999,
+                
             })
         
 

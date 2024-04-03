@@ -7,13 +7,15 @@ from osgeo import gdal, gdalconst
 from pathlib import Path
 from typing import Union
 import yaml 
-from multiprocessing import Pool
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from einops import rearrange, repeat
+from einops import rearrange
 import mlflow
 import matplotlib
+import matplotlib.animation as animation
+import tempfile
+
 
 def remove_outliers(img, signficance = 0.01):
     outliers = np.quantile(img, [signficance, 1-signficance], axis = (0,1))
@@ -503,10 +505,10 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     
     return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict
 
-def generate_images(true_results, predict_results, mask):
+def generate_images_old(true_results, predict_results, mask):
     matplotlib.rcParams.update({'font.size': 12})
     n_lags = true_results.shape[-1]
-    eps = 1e-7
+    eps = 1e-12
     for lag_i in range(n_lags):
         true_i = true_results[:,:,lag_i]
         predict_i = predict_results[:,:,lag_i]
@@ -523,6 +525,68 @@ def generate_images(true_results, predict_results, mask):
         mlflow.log_figure(fig, f'images/comparison_{lag_i}.png')
         #plt.savefig(path_to_save / f'single_{i}.jpg')
         plt.close(fig)
+    
+def generate_images(true_results, predict_results, mask, percentile = None):
+    matplotlib.rcParams.update({'font.size': 12})
+    n_lags = true_results.shape[-1]
+    eps = 1e-12
+    for lag_i in range(n_lags):
+        true_i = true_results[:,:,lag_i]
+        predict_i = predict_results[:,:,lag_i]
+        
+        if percentile is not None:
+            true_i_max = np.percentile(true_i, percentile)
+            true_i_min = 0 #true_i.min()
+            
+            predict_i_max = np.percentile(predict_i, percentile)
+            predict_i_min = 0 #predict_i.min()
+            
+            true_i = np.clip(true_i, true_i_min, true_i_max)
+            predict_i = np.clip(predict_i, predict_i_min, predict_i_max)
+        else:
+            true_i_max = true_i.max()
+            true_i_min = 0# true_i.min()
+            
+            predict_i_max = predict_i.max()
+            predict_i_min = 0# predict_i.min()
+        
+        true_i = (true_i - true_i_min + eps) / (true_i_max - true_i_min + eps)
+        predict_i = (predict_i - predict_i_min + eps) / (predict_i_max - predict_i_min + eps)
+        
+        true_i[mask==0] = -1
+        predict_i[mask==0] = -1
+        
+        matplotlib.rcParams.update({'font.size': 18})
+        fig = plt.figure(figsize=(12,8))
+        plt.axis("off")
+        im = plt.imshow(true_i, animated = True)
+        
+        def animated_func(frame):
+            if frame == 0:
+                im.set_array(true_i)
+                plt.title(f'Reference')
+            elif frame == 1:
+                im.set_array(predict_i)
+                plt.title(f'Prediction')
+            return [im]
+        
+        anim = animation.FuncAnimation(
+                                    fig, 
+                                    animated_func, 
+                                    frames = 2,
+                                    interval = 2000, # in ms
+                                    )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            writer = animation.PillowWriter(fps=1,
+                                            metadata=dict(artist='Me'),
+                                            bitrate=1800)
+            temp_file = Path(tmp_dir) / f'comparison_{lag_i}.gif'
+            anim.save(temp_file, writer=writer)
+            
+            mlflow.log_artifact(temp_file, 'images')
+            
+        plt.close(fig)
+
         
 def generate_metric_figures(true_results, predict_results, mask, metric, metric_name, run_name, y_limits, bins = [0, 1, 2, 5, 10], log = True):
     matplotlib.rcParams.update({'font.size': 14})
@@ -610,7 +674,7 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
         mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
     plt.close(fig)
     
-def evaluate_metric(true_results, predict_results, mask, metric, normalize = False):
+def evaluate_metric(true_results, predict_results, mask, metric, normalize = False, percentile = None):
     true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
     predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
     
@@ -618,8 +682,15 @@ def evaluate_metric(true_results, predict_results, mask, metric, normalize = Fal
     predict_results_flatten = predict_results_flatten[mask.flatten()==1].flatten()
     
     if normalize:
+        true_max = np.percentile(true_results_flatten, percentile)
+        true_min = 0 # true_results_flatten.min()
+        true_results_flatten = np.clip(true_results_flatten, true_min, true_max)
+        predict_max = np.percentile(predict_results_flatten, percentile)
+        predict_min = 0 # predict_results_flatten.min()
+        predict_results_flatten = np.clip(predict_results_flatten, predict_min, predict_max)
+        
         eps = 1e-12
-        true_results_flatten = (true_results_flatten - true_results_flatten.min() + eps) / (true_results_flatten.max() - true_results_flatten.min() + eps)
-        predict_results_flatten = (predict_results_flatten - predict_results_flatten.min() + eps) / (predict_results_flatten.max() - predict_results_flatten.min() + eps)
+        true_results_flatten = (true_results_flatten - true_min + eps) / (true_max - true_min + eps)
+        predict_results_flatten = (predict_results_flatten - predict_min + eps) / (predict_max - predict_min + eps)
     
     return metric(true_results_flatten, predict_results_flatten)
