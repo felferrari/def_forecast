@@ -7,7 +7,7 @@ from lightning import LightningDataModule
 from datasets.features import features, mask_path, FeatureData, FeatureDataSet #, get_first_lag
 import torch
 
-class DataModule(LightningDataModule):
+class ClassificationRegressionDataModule(LightningDataModule):
     def __init__(self,
                  #n_previous_times,
                  time_0,

@@ -74,7 +74,7 @@ cls_vector_save_pred_callback = {
 }
 
 reg_vector_data_module = {
-    'class': vector_regression.DataModule,
+    'class': vector_regression.ClassificationRegressionDataModule,
     'params':{
         #'n_previous_times' : default.n_prev_times,
         'time_0' : default.time_0,
