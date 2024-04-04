@@ -1,5 +1,4 @@
-from datetime import timedelta
-from typing import Any, Literal, Sequence
+from typing import Any, Sequence
 from lightning import LightningModule, Trainer
 from lightning.pytorch.callbacks import BasePredictionWriter
 from pathlib import Path
@@ -52,18 +51,17 @@ class SaveImagePrediction(BasePredictionWriter):
                 mlflow.log_artifact(tmp_file, 'prediction')
                 
 class SaveVectorPrediction(BasePredictionWriter):
-    def __init__(self, test_time_0, test_times, log_tiff = False, **kwargs):
+    def __init__(self, lag_0, lag_size, log_tiff = False, **kwargs):
         super().__init__(write_interval = 'batch_and_epoch')
         #self.n_prev = n_prev
-        self.save_tiff = log_tiff
-        self.test_time_0 = test_time_0
+        self.log_tiff = log_tiff
+        self.lag_0 = lag_0
         
         self.mask = load_sb_image(features.mask_path)
         self.shape = self.mask.shape
         
-        self.predicted_values = np.zeros(self.shape + (test_times,), dtype=np.float64)
+        self.predicted_values = np.zeros(self.shape + (lag_size,), dtype=np.float64)
         self.predicted_values = rearrange(self.predicted_values, 'h w c -> (h w) c')
-               
     
     def write_on_batch_end(self, trainer: Trainer, pl_module: LightningModule, prediction: Any, batch_indices, batch: Any, batch_idx: int, dataloader_idx: int) -> None:
         x_list, y_list, weight_list, lag_i_list, vector_i_list = batch
@@ -73,12 +71,12 @@ class SaveVectorPrediction(BasePredictionWriter):
             vector_i = vector_i_list[i]
             weight_i = weight_list[i]
             
-            self.predicted_values[vector_i, lag_i- self.test_time_0] = pred_i * weight_i
+            self.predicted_values[vector_i, lag_i- self.lag_0] = pred_i * weight_i
     
     def write_on_epoch_end(self, trainer: Trainer, pl_module: LightningModule, predictions: Sequence[Any], batch_indices: Sequence[Any]) -> None:
         self.final_image = rearrange(self.predicted_values, '(h w) c -> h w c', h = self.shape[0], w = self.shape[1])
         #self.final_image = np.zeros_like(self.final_image)
-        if self.save_tiff:
+        if self.log_tiff:
             with tempfile.TemporaryDirectory() as tmp_dir:
                 cells_ones = np.ones_like(self.final_image[0,0])
                 self.final_image[self.mask == 0] = -1 * cells_ones

@@ -3,6 +3,7 @@ from utils.ops import load_ml_image, load_sb_image
 from einops import rearrange, repeat
 from enum import Enum
 import numpy as np
+from itertools import product
 
 class PERIOD(Enum):
     BIWEEKLY = 0
@@ -94,7 +95,7 @@ features = {
 
 
 class FeatureData:
-    def __init__(self, feat, masked) -> None:
+    def __init__(self, feat) -> None:
         self.name = feat.split('_')[0]
         if features[self.name]['period'] != PERIOD.STATIC:
             self.first_data_lag = features[self.name]['first_lag']
@@ -103,13 +104,8 @@ class FeatureData:
             else:
                 self.n_prev = int(feat.split('_')[1])
                 
-        self.data = rearrange(load_ml_image(features[self.name]['path_to_file']), 'h w l -> (h w) l')
-        if masked:
-            mask = load_sb_image(mask_path).flatten()
-            self.data = self.data[mask == 1]
+        self.data = rearrange(load_ml_image(features[self.name]['path_to_file']), 'h w l -> l (h w)')
             
-        self.data = rearrange(self.data, 'n l ->l n')
-        
         if features[self.name]['period'] == PERIOD.STATIC:
             assert len(feat.split('_')) == 2, 'Static data must specifiy the layer'
             s_data = feat.split('_')[1]
@@ -125,31 +121,22 @@ class FeatureData:
         self.mean = self.data.mean()
         
         self.period = features[self.name]['period']
-        self.filtered = False
+        # self.filtered = False
         
     def normalize_data(self):
         #self.data = (self.data - self.min) / (self.max - self.min)
         self.data = (self.data - self.mean) / (self.std)
     
-    def filter_period(self, first_lag, last_lag):
-        assert not self.filtered, 'DataFeature only can be filtered once.'
-        self.filtered = True
-        if self.period == PERIOD.STATIC or self.period == PERIOD.QUARTERLY:
-            return
-        
-        if self.period == PERIOD.BIWEEKLY:
-            assert (first_lag - self.first_data_lag >= 0) and (first_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
-            assert (last_lag - self.first_data_lag >= 0) and (last_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
-            self.data = self.data[first_lag - self.first_data_lag:  last_lag - self.first_data_lag]
+    # def filter_period(self, first_lag, last_lag):
+    #     assert not self.filtered, 'DataFeature only can be filtered once.'
+    #     self.filtered = True
+
+    #     if self.period == PERIOD.BIWEEKLY:
+    #         assert (first_lag - self.first_data_lag >= 0) and (first_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
+    #         assert (last_lag - self.first_data_lag >= 0) and (last_lag - self.first_data_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
+    #         self.data = self.data[first_lag - self.first_data_lag:  last_lag - self.first_data_lag]
             
-        # if self.period == PERIOD.QUARTERLY:
-        #     first_quarterly_lag = first_lag // 6
-        #     last_quarterly_lag = last_lag // 6
-        #     first_data_quarterly_lag = self.first_data_lag // 6
-        #     assert (first_quarterly_lag - first_data_quarterly_lag >= 0) and (first_quarterly_lag - first_data_quarterly_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
-        #     assert (last_quarterly_lag - first_data_quarterly_lag >= 0) and (last_quarterly_lag - first_data_quarterly_lag <= self.data.shape[0]), f'Lag must be into the {self.name} limits'
-        #     self.data = self.data[first_quarterly_lag - first_data_quarterly_lag:  last_quarterly_lag - first_data_quarterly_lag]
-        
+
     def get_data(self, lag_i, vector_i):
         if self.period == PERIOD.BIWEEKLY:
             lag_0 = lag_i - self.n_prev - self.first_data_lag
@@ -167,17 +154,21 @@ class FeatureData:
 
 
 class FeatureDataSet():
-    def __init__(self, feature_list, normalize_data = False, normalize_label = False, masked = False) -> None:
-        self.label = FeatureData(feature_list[0], masked)
-        self.features = [FeatureData(feat, masked) for feat in feature_list]
-        #self.first_dataset_lag = get_first_lag(feature_list)
+    def __init__(self, feature_list, lag_0, lag_size, normalize_data = False, normalize_label = False, geo_mask = False, mask = False) -> None:
+        self.label = FeatureData(feature_list[0])
+        self.features = [FeatureData(feat) for feat in feature_list]
+        self.mask = load_sb_image(mask_path).flatten()
         
-        self.n_prev = 1
-        for feat in self.features:
-            if feat.period == PERIOD.STATIC:
-                continue
-            self.n_prev = max(self.n_prev, feat.n_prev)
+        #self.indexes = np.arange(len(self.label.data.flatten()))
+        #self.indexes = self.indexes.reshape(self.label.data.shape)
         
+        self.masked_indexes = np.ones_like(self.label.data)
+        self.masked_indexes[:lag_0] = 0
+        self.masked_indexes[lag_0+lag_size:] = 0
+        
+        if geo_mask:
+            self.masked_indexes[:, self.mask == 0] = 0
+            
         if normalize_label:
             self.label.normalize_data()
             
@@ -185,42 +176,29 @@ class FeatureDataSet():
             for feature in self.features:
                 feature.normalize_data()
                 
-        self.first_lag = 0
-        self.last_lag = self.label.data.shape[0]
+        self.indexes = np.array(list(product(
+            np.arange(self.label.data.shape[0]),
+            np.arange(self.label.data.shape[1])
+        )))
         
-        
-    # def filter_period(self, first_lag, last_lag):
-    #     self.first_lag = first_lag
-    #     self.last_lag = last_lag
-    #     self.label.filter_period(first_lag, last_lag)
-    #     for feature in self.features:
-    #         feature.filter_period(first_lag, last_lag)
-            
-    def n_lags(self):
-        return self.label.data.shape[0]
+        self.indexes = self.indexes[self.masked_indexes.flatten() == 1]
+        np.random.shuffle(self.indexes)
+                
+                
+    # @property
+    # def valid_indexes(self):
+    #     return self.indexes[self.masked_indexes == 1]
     
-    def n_vectors(self):
-        return self.label.data.shape[1]
+    def __len__(self):
+        return self.indexes.shape[0]
     
-    def get_data(self, lag_i, vector_i):
+    def get_data(self, index):
+        lag_i, vector_i = self.indexes[index]
         label = np.array([self.label.data[lag_i, vector_i]])
+        weight = self.mask[vector_i]
         data = {}
         for feature in self.features:
             data[feature.name] = feature.get_data(lag_i, vector_i)
-        return data, label
+        return data, label, weight, lag_i, vector_i
         
-        
-        
-        
-    
-        
-# def get_first_lag(feat_list):
-#     first_lag = 0
-#     for feat in feat_list:
-#         feat_name = feat.split('_')[0]
-#         if features[feat_name]['period'] == PERIOD.STATIC:
-#             continue
-#         first_lag = max(first_lag, features[feat_name]['first_lag'])
-    
-#     return first_lag
 

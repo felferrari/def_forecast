@@ -1,0 +1,105 @@
+experiment_name: Deforestation Prediction
+default:
+  features_list: 
+    &feature_list
+    - ArDS_4 
+    - Biweekly
+    - AcAr
+    - CtDS
+    - DeAr
+    # - Cloud
+    - XArDS
+    - XDeDS
+    - OcDS
+    - XQ 
+    # - DS
+    # - DryMonths_0
+    - Coordinates_0,1
+    # - Distbd_0
+    # - Distbd_1
+    # - Distbd_2
+    # - Distbd_3
+    # - Distbd_4
+    # - Dvd_0
+    # - EF_0
+    # - EF_1
+    # - EF_2
+    # - EF_3
+    # - EF_4
+    # - EF_5
+    # - EF_6
+  # optimizer:
+  #   class_path: torch.optim.Adam
+  #   params:
+  #     lr: 1.0e-7
+  # criterion:
+  #   class_path: torch.nn.MSELoss
+  #   params:
+  #     reduction: none
+  train_params:
+    early_stop_patience: 10
+    max_epochs: 500
+
+identity:
+  features_list: ['ArDS_1'] 
+  model:
+    class_path: models.vector.Identity
+    #params:
+  data_module:
+    class_path: datasets.vector.classification.DataModule
+    params:
+      normalize_data: False
+  prediction_callback:
+    class_path:
+    #params:
+  prediction_sufix: classification
+
+mlp_cls:
+  model:
+    class_path: models.vector.MlpClasifier
+    params:
+      layers: [64, 128, 256, 512, 128, 64]
+  data_module:
+    class_path: datasets.vector.DataModule
+    params:
+      #features_list: *feature_list
+      normalize_data: False
+      task: classification
+  criterion:
+    class_path: torch.nn.CrossEntropyLoss
+    params:
+      reduction: none
+  optimizer:
+    class_path: torch.optim.Adam
+    params:
+      lr: 1.0e-5
+
+mlp_cls_0:
+  parent_experiment: mlp_cls
+
+mlp_reg:
+  model:
+    class_path: models.vector.MlpRegression
+    params:
+      layers: [64, 128, 256, 1024, 2048, 1024, 512, 128, 64]
+  data_module:
+    class_path: datasets.vector.DataModule
+    params:
+      #features_list: *feature_list
+      normalize_data: False
+      task: regression
+  criterion:
+    class_path: torch.nn.MSELoss
+    params:
+      reduction: none
+  optimizer:
+    class_path: torch.optim.Adam
+    params:
+      lr: 1.0e-7
+  predict_params:
+    lag_0: 120
+    lag_size: 48
+
+
+mlp_reg_0:
+  parent_experiment: mlp_reg

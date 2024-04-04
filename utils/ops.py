@@ -674,7 +674,7 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
         mlflow.log_figure(fig, f'figures/hist_{run_name}.png')
     plt.close(fig)
     
-def evaluate_metric(true_results, predict_results, mask, metric, normalize = False, percentile = None):
+def evaluate_metric(true_results, predict_results, mask, metric, normalize = False, percentile = 100):
     true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
     predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
     
