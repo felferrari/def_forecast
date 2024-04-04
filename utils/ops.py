@@ -1,7 +1,5 @@
 import json
 import numpy as np
-import os
-import sys
 from osgeo import gdal_array
 from osgeo import gdal, gdalconst
 from pathlib import Path
@@ -18,6 +16,22 @@ import tempfile
 
 
 def remove_outliers(img, signficance = 0.01):
+    """
+    The function `remove_outliers` takes an image as input and clips the pixel values based on the
+    specified significance level to remove outliers.
+    
+    @param img The `img` parameter in the `remove_outliers` function is expected to be a NumPy array
+    representing an image. The function calculates the lower and upper quantiles for each color channel
+    of the image and clips the pixel values to remove outliers based on the specified significance
+    level.
+    @param signficance The `significance` parameter in the `remove_outliers` function determines the
+    proportion of outliers to be removed from the image. It is used to calculate the quantiles that
+    define the range within which pixel values are considered non-outliers. The default value for
+    `significance` is set to
+    
+    @return The function `remove_outliers` returns the input image `img` with outliers removed based on
+    the specified significance level.
+    """
     outliers = np.quantile(img, [signficance, 1-signficance], axis = (0,1))
     for channel in range(img.shape[-1]):
         img[:,:,channel] = np.clip(img[:,:,channel], outliers[0, channel],  outliers[1, channel])
@@ -25,50 +39,71 @@ def remove_outliers(img, signficance = 0.01):
 
 
 def load_json(fp):
+    """
+    The function `load_json` reads and loads a JSON file from the given file path.
+    
+    @param fp The `fp` parameter in the `load_json` function stands for the file path to the JSON file
+    that you want to load and read. It is used to specify the location of the JSON file on your system.
+    
+    @return The function `load_json(fp)` is returning the content of the JSON file located at the file
+    path `fp`.
+    """
     with open(fp) as f:
         return json.load(f)
     
 def save_json(dict_:dict, file_path: Union[str, Path]) -> None:
-    """Save a dictionary into a file
-
-    Args:
-        dict_ (dict): Dictionary to be saved
-        file_path (Union[str, Path]): file path
     """
-
+    The function `save_json` saves a dictionary as a JSON file with an optional indentation of 4 spaces.
+    
+    @param dict_ The `dict_` parameter is a dictionary that contains the data you want to save as a JSON
+    file.
+    @param file_path The `file_path` parameter in the `save_json` function is the path to the file where
+    the JSON data will be saved. It can be either a string representing the file path or a `Path` object
+    from the `pathlib` module. This parameter specifies the location where the JSON data
+    """
     with open(file_path, 'w') as f:
         json.dump(dict_, f, indent=4)
 
 def save_yaml(dict_:dict, file_path: Union[str, Path]) -> None:
-    """Save a dictionary into a file
-
-    Args:
-        dict_ (dict): Dictionary to be saved
-        file_path (Union[str, Path]): file path
     """
-
+    The function `save_yaml` saves a dictionary to a YAML file at the specified file path.
+    
+    @param dict_ The `dict_` parameter is a dictionary that contains the data you want to save to a YAML
+    file.
+    @param file_path The `file_path` parameter is a string or a `Path` object that represents the path
+    to the file where the YAML data will be saved. It specifies the location and name of the file where
+    the YAML data will be written.
+    """
     with open(file_path, 'w') as f:
         yaml.dump(dict_, f, default_flow_style=False)
 
 def load_yaml(file_path: Union[str, Path]) -> None:
-    """Save a dictionary into a file
-
-    Args:
-        dict_ (dict): Dictionary to be saved
-        file_path (Union[str, Path]): file path
     """
-
+    The function `load_yaml` reads and loads a YAML file from the specified file path.
+    
+    @param file_path The `file_path` parameter in the `load_yaml` function is a string or a `Path`
+    object that represents the path to the YAML file that you want to load and parse.
+    
+    @return The function `load_yaml` is supposed to load and parse a YAML file, but it is currently
+    returning the result of `yaml.safe_load(f)`. However, the function is annotated to return `None`. To
+    fix this, you should update the return type hint of the function to match the actual return value,
+    which is the parsed YAML data.
+    """
     with open(file_path, 'r') as f:
         return yaml.safe_load(f)
     
 def load_opt_image(img_file):
-    """load optical data.
-
-    Args:
-        img_file (str): path to the geotiff optical file.
-
-    Returns:
-        array:numpy array of the image.
+    """
+    The function `load_opt_image` loads an image file, converts it to a float16 array, handles NaN
+    values, adjusts the shape if necessary, and then normalizes the values before returning the image.
+    
+    @param img_file The `img_file` parameter in the `load_opt_image` function is expected to be a file
+    path to an image file that will be loaded and processed.
+    
+    @return The function `load_opt_image` returns a preprocessed image array. The image is loaded from
+    the specified file using GDAL library, converted to float16 data type, and any NaN values are
+    replaced with 0. If the image is 2-dimensional, it is expanded to have a third dimension. Finally,
+    the image array is transposed to have the channel dimension as the last axis and normalized
     """
     img = gdal_array.LoadFile(str(img_file)).astype(np.float16)
     img[np.isnan(img)] = 0
@@ -77,13 +112,15 @@ def load_opt_image(img_file):
     return np.moveaxis(img, 0, -1) / 10000
 
 def load_sb_image(img_file):
-    """load a single band geotiff image.
-
-    Args:
-        img_file (str): path to the geotiff file.
-
-    Returns:
-        array:numpy array of the image. Channels Last.
+    """
+    The function `load_sb_image` loads an image file using GDAL and returns the image.
+    
+    @param img_file The `img_file` parameter in the `load_sb_image` function is a string that represents
+    the file path of an image file that you want to load using GDAL (Geospatial Data Abstraction
+    Library).
+    
+    @return The function `load_sb_image` is returning the image data loaded from the specified image
+    file using GDAL library.
     """
     img = gdal_array.LoadFile(str(img_file))
     return img
@@ -93,14 +130,22 @@ def get_nodata(img_file):
     return srs.GetRasterBand(1).GetNoDataValue()
 
 def load_ml_image(img_file):
-    """load a single band geotiff image.
-
-    Args:
-        img_file (str): path to the geotiff file.
-
-    Returns:
-        array:numpy array of the image. Channels Last.
     """
+    This function loads a multi-band image file, handles NaN values, and adjusts the image dimensions if
+    necessary before returning the image array.
+    
+    @param img_file The `img_file` parameter is a file path to an image file that will be loaded using
+    GDAL (Geospatial Data Abstraction Library) and converted to a NumPy array of type float32. The
+    function then handles any NaN (Not a Number) values in the image array by setting
+    
+    @return The function `load_ml_image` returns a NumPy array representing the image data with the
+    following characteristics:
+    - Any NaN values in the image data are replaced with 0.
+    - If the image data is 2-dimensional, it is expanded to have a third dimension.
+    - The dimensions of the array are rearranged using `np.moveaxis` so that the first dimension becomes
+    the last dimension.
+    """
+
     img = gdal_array.LoadFile(str(img_file)).astype(np.float32)
     img[np.isnan(img)] = 0
     if len(img.shape) == 2 :
@@ -109,73 +154,42 @@ def load_ml_image(img_file):
 
 
 def load_SAR_image(img_file):
-    """load SAR image, converting from Db to DN.
-
-    Args:
-        img_file (str): path to the SAR geotiff file.
-
-    Returns:
-        array:numpy array of the image. Channels Last.
     """
+    The function `load_SAR_image` loads a Synthetic Aperture Radar (SAR) image file, processes it by
+    setting NaN values to 0, and then reorders the axes of the image array.
+    
+    @param img_file The `img_file` parameter in the `load_SAR_image` function is a file path to the SAR
+    (Synthetic Aperture Radar) image that you want to load and process. This function uses GDAL
+    (Geospatial Data Abstraction Library) to load the image data from the specified
+    
+    @return The function `load_SAR_image` is returning the SAR image data after loading the image file,
+    replacing any NaN values with 0, and then rearranging the axes of the image array. The final output
+    is the SAR image data with the axes moved from the first position to the last position.
+    """
+
     img = gdal_array.LoadFile(str(img_file))
     #img = 10**(img/10) 
     img[np.isnan(img)] = 0
     return np.moveaxis(img, 0, -1)
 
-def save_feature_map(path_to_file, tensor, index = None):
-    if index is not None:
-        fm = tensor[index]
-
-def create_exps_paths(exp_n):
-    exps_path = 'exps'
-
-    exp_path = os.path.join(exps_path, f'exp_{exp_n}')
-    models_path = os.path.join(exp_path, 'models')
-
-    results_path = os.path.join(exp_path, 'results')
-    predictions_path = os.path.join(results_path, 'predictions')
-    visual_path = os.path.join(results_path, 'visual')
-
-    logs_path = os.path.join(exp_path, 'logs')
-
-    
-    if not os.path.exists(exp_path):
-        os.makedirs(exp_path)
-    
-    if not os.path.exists(models_path):
-        os.makedirs(models_path)
-    
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-    
-    if not os.path.exists(logs_path):
-        os.makedirs(logs_path)
-    
-    if not os.path.exists(predictions_path):
-        os.makedirs(predictions_path)
-
-    if not os.path.exists(visual_path):
-        os.makedirs(visual_path)
-
-    return exps_path, exp_path, models_path, results_path, predictions_path, visual_path, logs_path
-
-def load_exp(exp_n = None):
-    if exp_n is None:
-        if len(sys.argv)==1:
-            return None
-        else:
-            return load_json(os.path.join('conf', 'exps', f'exp_{sys.argv[1]}.json'))
-    else:
-        return load_json(os.path.join('conf', 'exps', f'exp_{exp_n}.json'))
-    
-
 def save_geotiff(base_image_path, dest_path, data, dtype, nodata = None):
-    """Save data array as geotiff.
-    Args:
-        base_image_path (str): Path to base geotiff image to recovery the projection parameters
-        dest_path (str): Path to geotiff image
-        data (array): Array to be used to generate the geotiff
-        dtype (str): Data type of the destiny geotiff: If is 'byte' the data is uint8, if is 'float' the data is float32
+    """
+    This function saves a NumPy array as a GeoTIFF file using GDAL library in Python.
+    
+    @param base_image_path The `base_image_path` parameter in the `save_geotiff` function is the file
+    path to the base image that will be used as a reference for the geospatial information in the new
+    GeoTIFF file.
+    @param dest_path The `dest_path` parameter in the `save_geotiff` function is the destination path
+    where the GeoTIFF file will be saved. It should be a string representing the full path including the
+    filename and extension of the output GeoTIFF file.
+    @param data It looks like the code snippet you provided is a function for saving a GeoTIFF file
+    using GDAL library in Python. The function takes several parameters including `base_image_path`,
+    `dest_path`, `data`, `dtype`, and `nodata`.
+    @param dtype The `dtype` parameter in the `save_geotiff` function specifies the data type of the
+    input data that you want to save as a GeoTIFF file. It can take on the following values:
+    @param nodata The `nodata` parameter in the `save_geotiff` function is used to specify a pixel value
+    that should be treated as NoData in the output GeoTIFF file. This means that any pixel in the input
+    data that has a value equal to the specified `nodata` value will
     """
     base_image_path = str(base_image_path)
     base_data = gdal.Open(base_image_path, gdalconst.GA_ReadOnly)
@@ -505,28 +519,27 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     
     return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict
 
-def generate_images_old(true_results, predict_results, mask):
-    matplotlib.rcParams.update({'font.size': 12})
-    n_lags = true_results.shape[-1]
-    eps = 1e-12
-    for lag_i in range(n_lags):
-        true_i = true_results[:,:,lag_i]
-        predict_i = predict_results[:,:,lag_i]
-        
-        true_i = (true_i - true_i.min() + eps) / (true_i.max() - true_i.min() + eps)
-        predict_i = (predict_i - predict_i.min() + eps) / (predict_i.max() - predict_i.min() + eps)
-            
-        fig = plt.figure()
-        image = np.stack([true_i, predict_i, np.zeros_like(predict_i)], axis=-1)
-        image [mask == 0] = [1,1,1]
-        plt.imshow(image)
-        plt.axis("off")
-        plt.title(f'Normalized Prediction (Green) and Reference (Red)')
-        mlflow.log_figure(fig, f'images/comparison_{lag_i}.png')
-        #plt.savefig(path_to_save / f'single_{i}.jpg')
-        plt.close(fig)
-    
 def generate_images(true_results, predict_results, mask, percentile = None):
+    """
+    This function generates animated comparison images between true and predicted results for each lag,
+    with optional clipping based on percentiles.
+    
+    @param true_results It looks like the code snippet you provided is a function named
+    `generate_images` that generates animated comparison images for true and predicted results. The
+    function takes in several parameters including `true_results`, `predict_results`, `mask`, and an
+    optional parameter `percentile`.
+    @param predict_results It looks like the code snippet you provided is a function named
+    `generate_images` that generates animated comparison images for true and predicted results. The
+    function takes in several parameters including `true_results`, `predict_results`, `mask`, and an
+    optional parameter `percentile`.
+    @param mask The `mask` parameter in the `generate_images` function is used to specify a binary mask
+    that determines which elements of the `true_i` and `predict_i` arrays should be displayed in the
+    generated images. Elements with a value of 1 in the `mask` array will be displayed in
+    @param percentile The `percentile` parameter in the `generate_images` function is used to specify
+    the percentile value for clipping the true and predicted results. If a `percentile` value is
+    provided, the function will clip the true and predicted values based on the specified percentile. If
+    `percentile` is set
+    """
     matplotlib.rcParams.update({'font.size': 12})
     n_lags = true_results.shape[-1]
     eps = 1e-12
@@ -589,6 +602,44 @@ def generate_images(true_results, predict_results, mask, percentile = None):
 
         
 def generate_metric_figures(true_results, predict_results, mask, metric, metric_name, run_name, y_limits, bins = [0, 1, 2, 5, 10], log = True):
+    """
+    The function `generate_metric_figures` generates bar charts for a given metric based on true and
+    predicted results, with options for binning and logarithmic scaling.
+    
+    @param true_results The `true_results` parameter is typically a NumPy array containing the true
+    values of the results you are analyzing. It could represent actual data points, ground truth values,
+    or reference values that you want to compare against predicted results.
+    @param predict_results It seems like you were about to provide more information about the
+    `predict_results` parameter, but the message got cut off. Could you please provide more details or
+    let me know if you need assistance with something specific related to the `predict_results`
+    parameter?
+    @param mask The `mask` parameter is used to filter out certain elements from the `true_results` and
+    `predict_results` arrays. It is a binary mask that indicates which elements should be included in
+    the calculations based on their corresponding positions. Only elements where the mask value is 1
+    will be considered in the
+    @param metric The `metric` parameter in the `generate_metric_figures` function is a function that
+    calculates a performance metric between the true results and predicted results for a specific bin of
+    reference values. This metric could be any evaluation metric such as Mean Absolute Error (MAE), Root
+    Mean Squared Error (RM
+    @param metric_name The `metric_name` parameter in the `generate_metric_figures` function is a string
+    that represents the name of the metric being used for evaluation. It could be something like "MAE"
+    (Mean Absolute Error), "RMSE" (Root Mean Squared Error), "R2 Score"
+    @param run_name The `run_name` parameter is a string that represents the name of the current run or
+    experiment. It is used to uniquely identify the figures generated for a specific run in the output
+    file names.
+    @param y_limits The `y_limits` parameter in the `generate_metric_figures` function is used to
+    specify the limits for the y-axis of the plot. It is a tuple containing two values - the lower limit
+    and the upper limit for the y-axis. This parameter allows you to control the range of values
+    displayed
+    @param bins The `bins` parameter in the `generate_metric_figures` function is a list that specifies
+    the bin edges for grouping the true results into different ranges. The function then calculates the
+    metric between the true and predicted results for each bin.
+    @param log The `log` parameter in the `generate_metric_figures` function is a boolean flag that
+    determines whether the y-axis of the generated figure should be displayed in logarithmic scale or
+    not. If `log` is set to `True`, the y-axis will be displayed in logarithmic scale, otherwise
+    
+    @return The function `generate_metric_figures` returns two lists: `bins_x` and `bins_y`.
+    """
     matplotlib.rcParams.update({'font.size': 14})
     true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
     predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
@@ -631,6 +682,32 @@ def generate_metric_figures(true_results, predict_results, mask, metric, metric_
     return bins_x, bins_y
 
 def generate_histograms(true_results, predict_results, mask, x_limits, run_name, log = True, normalize = False):
+    """
+    The function `generate_histograms` creates and logs histograms of true and predicted results, with
+    options for normalization and logarithmic scaling.
+    
+    @param true_results True results refer to the actual values or ground truth data that you are
+    comparing against. It could be the actual outcomes of a model or experiment.
+    @param predict_results Predict_results is a NumPy array containing the predicted results of an
+    algorithm for a certain task. It is typically in the format of height x width x channels,
+    representing the predicted values for each pixel or region in an image or dataset.
+    @param mask The `mask` parameter is likely a binary mask that is used to filter out certain values
+    from the `true_results` and `predict_results` arrays. It is used to select specific elements from
+    these arrays based on the condition specified by the mask. In this case, it seems to be used to
+    @param x_limits The `x_limits` parameter in the `generate_histograms` function is used to specify
+    the range of values to be displayed on the x-axis of the histogram. It is a tuple that defines the
+    lower and upper limits of the x-axis range for the histogram. For example, if `x_limits
+    @param run_name The `run_name` parameter is a string that represents the name of the current run or
+    experiment. It is used to uniquely identify the generated histogram figures when logging them for
+    tracking purposes.
+    @param log The `log` parameter in the `generate_histograms` function is a boolean flag that
+    determines whether the y-axis of the histogram should be displayed in logarithmic scale or not. If
+    `log` is set to `True`, the y-axis will be displayed in logarithmic scale, otherwise, it
+    @param normalize The `normalize` parameter in the `generate_histograms` function is used to specify
+    whether the histogram data should be normalized before plotting. When `normalize` is set to `True`,
+    the function will normalize the data by scaling it to a range between 0 and 1 based on the standard
+    deviation
+    """
     matplotlib.rcParams.update({'font.size': 14})
     plt.style.use('seaborn-v0_8-deep')
     
@@ -675,6 +752,33 @@ def generate_histograms(true_results, predict_results, mask, x_limits, run_name,
     plt.close(fig)
     
 def evaluate_metric(true_results, predict_results, mask, metric, normalize = False, percentile = 100):
+    """
+    The function `evaluate_metric` takes true and predicted results, a mask, a metric function, and
+    optional parameters to normalize the results and calculates the metric score.
+    
+    @param true_results True results are the actual values or ground truth data that you are comparing
+    the predicted results against.
+    @param predict_results The `predict_results` parameter is a multi-dimensional array containing the
+    predicted results of a model.
+    @param mask The `mask` parameter is a binary mask that is used to select specific elements from the
+    `true_results` and `predict_results` arrays. It is used to filter out certain elements based on the
+    condition specified in the mask. In this code snippet, `mask.flatten()==1` is used to
+    @param metric The `metric` parameter in the `evaluate_metric` function is a function that calculates
+    a performance metric to evaluate the true results against the predicted results. This function will
+    take the true results and predicted results as inputs and return a numerical value indicating the
+    performance of the prediction. Examples of common metrics include Mean
+    @param normalize The `normalize` parameter in the `evaluate_metric` function is a boolean flag that
+    indicates whether or not to normalize the true and predicted results before evaluating the specified
+    metric. If `normalize` is set to `True`, the function will normalize the results based on the
+    specified percentile value.
+    @param percentile The `percentile` parameter in the `evaluate_metric` function is used to specify
+    the percentile value for clipping the true and predicted results when normalization is enabled. This
+    parameter determines the upper percentile value to be used for clipping the data.
+    
+    @return The function `evaluate_metric` returns the result of evaluating the specified metric
+    function on the true results and predicted results after processing them based on the provided
+    parameters such as mask, normalization, and percentile.
+    """
     true_results_flatten = rearrange(true_results, 'h w c -> (h w) c')
     predict_results_flatten = rearrange(predict_results, 'h w c -> (h w) c')
     
