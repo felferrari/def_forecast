@@ -22,6 +22,7 @@ class ModelModule(L.LightningModule):
 
     def training_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
+        x = self.model.prepare_input(x)
         y_hat = self.model(x) 
         loss = self.criterion(y_hat, y)
         loss = (loss*weight).sum() / weight.sum()
@@ -36,6 +37,7 @@ class ModelModule(L.LightningModule):
     
     def validation_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
+        x = self.model.prepare_input(x)
         y_hat = self.model(x)
         loss = self.criterion(y_hat, y)
         loss = (loss*weight).sum() / weight.sum()
@@ -53,6 +55,7 @@ class ModelModule(L.LightningModule):
     
     def test_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
+        x = self.model.prepare_input(x)
         y_hat = self.model(x)
         loss = self.criterion(y_hat, y)
         loss = (loss*weight).sum() / weight.sum()
@@ -77,6 +80,7 @@ class ModelModule(L.LightningModule):
     
     def predict_step(self, batch, batch_idx) -> STEP_OUTPUT:
         x, y, weight, lag_i, vec_i = batch
+        x = self.model.prepare_input(x)
         y_pred = self.model(x) 
         self.pred_min = min(self.pred_min, lag_i.min().item())
         self.pred_max = max(self.pred_max, lag_i.max().item())
@@ -91,5 +95,6 @@ class ModelModule(L.LightningModule):
         return self.optimizer(self.model.parameters(), **self.optimizer_params)
     
     def forward(self, x):
+        x = self.model.prepare_input(x)
         return self.model(x)
 

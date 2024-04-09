@@ -8,11 +8,71 @@ import yaml
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from einops import rearrange
+from einops import rearrange, repeat
 import mlflow
 import matplotlib
 import matplotlib.animation as animation
 import tempfile
+import collections.abc
+from collections.abc import MutableMapping
+from captum.attr import IntegratedGradients
+from captum.attr import Saliency
+from captum.attr import DeepLift
+from captum.attr import NoiseTunnel
+from captum.attr import visualization as viz
+from tqdm import tqdm
+from matplotlib.transforms import Bbox
+import pandas as pd
+
+def flatten_dict(dictionary, parent_key='', separator='_'):
+    """
+    The `flatten_dict` function recursively flattens a nested dictionary into a single-level dictionary
+    with keys concatenated using a separator.
+    
+    @param dictionary The `dictionary` parameter in the `flatten_dict` function is the input dictionary
+    that you want to flatten. This dictionary can contain nested dictionaries as values. The function
+    recursively flattens this dictionary into a single-level dictionary where the keys are concatenated
+    with the parent keys using the specified separator.
+    @param parent_key The `parent_key` parameter in the `flatten_dict` function is used to keep track of
+    the current key hierarchy while recursively flattening a nested dictionary. It represents the key of
+    the parent dictionary in the current recursive call.
+    @param separator The `separator` parameter in the `flatten_dict` function is used to separate keys
+    in the flattened dictionary. By default, the separator is set to `'_'`, but you can change it to any
+    other character or string if you prefer a different separator.
+    
+    @return The function `flatten_dict` returns a flattened dictionary where nested keys are combined
+    using the specified separator.
+    """
+    items = []
+    for key, value in dictionary.items():
+        new_key = parent_key + separator + key if parent_key else key
+        if isinstance(value, MutableMapping):
+            items.extend(flatten_dict(value, new_key, separator=separator).items())
+        else:
+            items.append((new_key, value))
+    return dict(items)
+
+def deepupdate(d, u):
+    """
+    The `deepupdate` function recursively updates a dictionary with the values from another dictionary.
+    
+    @param d The `d` parameter in the `deepupdate` function is a dictionary that will be updated with
+    the values from the `u` dictionary. The function recursively updates the values in `d` with the
+    values from `u`, going deep into nested dictionaries if necessary.
+    @param u The `u` parameter in the `deepupdate` function is a dictionary containing the updates that
+    need to be applied to the original dictionary `d`. It iterates over the key-value pairs in `u` and
+    updates the corresponding key in `d` with the new value. If the value is
+    
+    @return The `deepupdate` function is returning the dictionary `d` after performing deep update with
+    the dictionary `u`. It recursively updates the values of `d` with the values from `u`, and returns
+    the updated dictionary `d`.
+    """
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = deepupdate(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
 
 
 def remove_outliers(img, signficance = 0.01):
@@ -596,7 +656,7 @@ def generate_images(true_results, predict_results, mask, percentile = None):
             temp_file = Path(tmp_dir) / f'comparison_{lag_i}.gif'
             anim.save(temp_file, writer=writer)
             
-            mlflow.log_artifact(temp_file, 'images')
+            mlflow.log_artifact(temp_file, f'images_({percentile})')
             
         plt.close(fig)
 
@@ -798,3 +858,113 @@ def evaluate_metric(true_results, predict_results, mask, metric, normalize = Fal
         predict_results_flatten = (predict_results_flatten - predict_min + eps) / (predict_max - predict_min + eps)
     
     return metric(true_results_flatten, predict_results_flatten)
+
+def integrated_gradients_old(model, dataloader, device, run_name):
+    model = model.to(device)
+    model.eval()
+    x, y, weight, lag_i, vec_i = next(iter(dataloader))
+    y_labels = []
+    for k in x.keys():
+        for b in range(x[k].shape[1]):
+            y_labels.append(f'{k}_{b}')
+    sample = model.prepare_input(x)
+    ig = IntegratedGradients(model)
+    pbar = tqdm(iter(dataloader), desc = 'Evaluating Integrated Gradients')
+    fig = plt.figure(figsize=(8, 12))
+    plt.axvline(x = 0, color = 'black', linewidth = 2)
+    plt.axvline(x = -0.8, linestyle = '--', color = 'black')
+    plt.axvline(x = -0.6, linestyle = '--', color = 'black')
+    plt.axvline(x = -0.4, linestyle = '--', color = 'black')
+    plt.axvline(x = -0.2, linestyle = '--', color = 'black')
+    plt.axvline(x = 0.2, linestyle = '--', color = 'black')
+    plt.axvline(x = 0.4, linestyle = '--', color = 'black')
+    plt.axvline(x = 0.6, linestyle = '--', color = 'black')
+    plt.axvline(x = 0.8, linestyle = '--', color = 'black')
+    for data in pbar:
+        x, y, weight, lag_i, vec_i = data
+        x = model.prepare_input(x).to(device)
+        x.requires_grad = True
+        model.zero_grad()
+        tensor_attributes = ig.attribute(x, ).detach().cpu()
+        
+        scatter_y = repeat(np.arange(sample.shape[1]), 'f -> n f', n = tensor_attributes.shape[0])
+        
+        plt.scatter(
+            tensor_attributes, 
+            scatter_y, 
+            c = tensor_attributes, 
+            cmap = 'jet',
+            norm = 'linear',
+            vmin = -1,
+            vmax = 1)
+        
+    plt.xlim(-1,1)
+    plt.yticks(range(len(y_labels)), y_labels)
+    plt.xticks(np.linspace(-1, 1, 11))
+    plt.suptitle('Integrate Gradients', fontsize=24)
+    plt.xlabel('Integrated Gradients Value', fontsize = 18)
+    plt.ylabel('Feature', fontsize = 18)
+    fig.tight_layout()
+    mlflow.log_figure(fig, f'figures/ig_{run_name}.png')
+    #plt.savefig('test.png', bbox_inches=Bbox([[-1,0],fig.get_size_inches()]))
+    plt.close(fig)
+
+def integrated_gradients(model, dataloader, device, run_name):
+    model = model.to(device)
+    model.eval()
+    x, y, weight, lag_i, vec_i = next(iter(dataloader))
+    y_labels = []
+    for k in x.keys():
+        for b in range(x[k].shape[1]):
+            y_labels.append(f'{k}_{b}')
+    sample = model.prepare_input(x)
+    ig = IntegratedGradients(model)
+    pbar = tqdm(iter(dataloader), desc = 'Evaluating Integrated Gradients')
+    attr_results = None
+    for data in pbar:
+        x, y, weight, lag_i, vec_i = data
+        x = model.prepare_input(x).to(device)
+        x.requires_grad = True
+        model.zero_grad()
+        tensor_attributes = ig.attribute(x, ).detach().cpu()
+        
+        if attr_results is None:
+            attr_results = pd.DataFrame(tensor_attributes, columns=y_labels)
+        else:
+            attr_results = pd.concat([attr_results, pd.DataFrame(tensor_attributes, columns=y_labels)], ignore_index=True)
+    sorted_features = attr_results.abs().mean().sort_values().index.to_list()
+    
+    fig = plt.figure(figsize=(8, 0.5*len(sorted_features)))
+    plt.axvline(x = 0, color = 'black', linewidth = 2)
+    plt.axvline(x = -8, linestyle = '--', color = 'black')
+    plt.axvline(x = -6, linestyle = '--', color = 'black')
+    plt.axvline(x = -4, linestyle = '--', color = 'black')
+    plt.axvline(x = -2, linestyle = '--', color = 'black')
+    plt.axvline(x = 2, linestyle = '--', color = 'black')
+    plt.axvline(x = 4, linestyle = '--', color = 'black')
+    plt.axvline(x = 6, linestyle = '--', color = 'black')
+    plt.axvline(x = 8, linestyle = '--', color = 'black')
+    pbar2 = enumerate(tqdm(sorted_features, desc='Plotting data'))
+    for i, feature in pbar2:
+        scatter_y_labels = [i] * len(attr_results)
+        plt.scatter(
+            x = attr_results[feature],
+            y = scatter_y_labels, 
+            c = attr_results[feature],
+            cmap = 'jet',
+            norm = 'linear',
+            vmin = -10,
+            vmax = 10
+            )
+        
+    plt.xlim(-10,10)
+    plt.yticks(range(len(sorted_features)), sorted_features)
+    plt.xticks(np.linspace(-10, 10, 11))
+    plt.suptitle('Integrated Gradients', fontsize=24)
+    plt.xlabel('Integrated Gradients Values', fontsize = 18)
+    plt.ylabel('Feature', fontsize = 18)
+    fig.tight_layout()
+    mlflow.log_figure(fig, f'figures/ig_{run_name}.png')
+    #plt.savefig('test.png')
+    plt.close(fig)
+        

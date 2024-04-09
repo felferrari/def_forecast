@@ -2,7 +2,7 @@ experiment_name: Deforestation Prediction
 default:
   features_list: 
     &feature_list
-    - ArDS_4 
+    - ArDS_4
     - Biweekly
     - AcAr
     - CtDS
@@ -14,20 +14,10 @@ default:
     - XQ 
     # - DS
     # - DryMonths_0
-    - Coordinates_0,1
-    # - Distbd_0
-    # - Distbd_1
-    # - Distbd_2
-    # - Distbd_3
-    # - Distbd_4
+    # - Coordinates_0,1
+    # - Distbd_0,1,2,3,4
     # - Dvd_0
-    # - EF_0
-    # - EF_1
-    # - EF_2
-    # - EF_3
-    # - EF_4
-    # - EF_5
-    # - EF_6
+    # - EF_0,1,2,3,4,5,6
   # optimizer:
   #   class_path: torch.optim.Adam
   #   params:
@@ -40,6 +30,10 @@ default:
     early_stop_patience: 10
     max_epochs: 500
 
+  predict_params:
+    lag_0: 120
+    lag_size: 48
+
 identity:
   features_list: ['ArDS_1'] 
   model:
@@ -49,10 +43,6 @@ identity:
     class_path: datasets.vector.classification.DataModule
     params:
       normalize_data: False
-  prediction_callback:
-    class_path:
-    #params:
-  prediction_sufix: classification
 
 mlp_cls:
   model:
@@ -62,7 +52,6 @@ mlp_cls:
   data_module:
     class_path: datasets.vector.DataModule
     params:
-      #features_list: *feature_list
       normalize_data: False
       task: classification
   criterion:
@@ -81,12 +70,11 @@ mlp_reg:
   model:
     class_path: models.vector.MlpRegression
     params:
-      layers: [64, 128, 256, 1024, 2048, 1024, 512, 128, 64]
+      layers: [64, 256, 512, 256, 128]
   data_module:
     class_path: datasets.vector.DataModule
     params:
-      #features_list: *feature_list
-      normalize_data: False
+      normalize_data: True
       task: regression
   criterion:
     class_path: torch.nn.MSELoss
@@ -95,11 +83,105 @@ mlp_reg:
   optimizer:
     class_path: torch.optim.Adam
     params:
-      lr: 1.0e-7
-  predict_params:
-    lag_0: 120
-    lag_size: 48
+      lr: 2.0e-7
+
+mlp_features:
+  parent_experiment: mlp_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, XArDS, XDeDS, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6' ]
+
+mlp_features_2:
+  parent_experiment: mlp_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, XArDS, XDeDS, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6' ]
 
 
 mlp_reg_0:
   parent_experiment: mlp_reg
+
+mlp_reg_1:
+  parent_experiment: mlp_reg
+  data_module:
+    params:
+      label_weights_bins: [0, 1, 2, 5, 10]
+
+mlp_reg_2:
+  parent_experiment: mlp_reg
+  data_module:
+    params:
+      sample_bins: [0, 1, 2, 5, 10]
+
+mlp_reg_3:
+  parent_experiment: mlp_reg
+  data_module:
+    params:
+      sample_bins: [0, 1, 2, 5, 10]
+      label_weights_bins: [0, 1, 2, 5, 10]
+
+transformer_reg:
+  model:
+    class_path: models.vector.TransformerRegression
+    params:
+      n_layers: 6
+      d_model: 256
+      n_head: 8
+  data_module:
+    class_path: datasets.vector.DataModule
+    params:
+      normalize_data: True
+      task: regression
+  criterion:
+    class_path: torch.nn.MSELoss
+    params:
+      reduction: none
+  optimizer:
+    class_path: torch.optim.Adam
+    params:
+      lr: 2.0e-7
+
+transformer_features:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, XArDS, XDeDS, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6' ]
+  
+transformer_features_2:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, XArDS, XDeDS, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6' ]
+  
+transformer_reg_0:
+  parent_experiment: transformer_reg
+
+transformer_reg_1:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      label_weights_bins: [0, 1, 2, 5, 10]
+
+transformer_reg_2:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      sample_bins: [0, 1, 2, 5, 10]
+
+transformer_reg_3:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      sample_bins: [0, 1, 2, 5, 10]
+      label_weights_bins: [0, 1, 2, 5, 10]
+
+transformer_reg_4:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      label_weights_bins: [0]
+
+transformer_reg_5:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      sample_bins: [0]
+
+transformer_reg_6:
+  parent_experiment: transformer_reg
+  data_module:
+    params:
+      sample_bins: [0]
+      label_weights_bins: [0]

@@ -115,10 +115,11 @@ class FeatureData:
         else:
             self.first_lag, self.last_lag = None, None
         
-        self.max = self.data.max()
-        self.min = self.data.min()
-        self.std = self.data.std()
-        self.mean = self.data.mean()
+        mask_flatten = load_sb_image(mask_path).flatten()
+        self.max = self.data[:, mask_flatten== 1].max()
+        self.min = self.data[:, mask_flatten== 1].min()
+        self.std = self.data[:, mask_flatten== 1].std()
+        self.mean = self.data[:, mask_flatten== 1].mean()
         
         self.period = features[self.name]['period']
         # self.filtered = False
@@ -154,10 +155,10 @@ class FeatureData:
 
 
 class FeatureDataSet():
-    def __init__(self, feature_list, lag_0, lag_size, normalize_data = False, normalize_label = False, geo_mask = False, mask = False) -> None:
+    def __init__(self, feature_list, lag_0, lag_size, normalize_data = False, normalize_label = False, geo_mask = False, mask = False, label_weights_bins = None, sample_bins = None) -> None:
         self.label = FeatureData(feature_list[0])
         self.features = [FeatureData(feat) for feat in feature_list]
-        self.mask = load_sb_image(mask_path).flatten()
+        self.mask_flatten = load_sb_image(mask_path).flatten()
         
         #self.indexes = np.arange(len(self.label.data.flatten()))
         #self.indexes = self.indexes.reshape(self.label.data.shape)
@@ -167,10 +168,10 @@ class FeatureDataSet():
         self.masked_indexes[lag_0+lag_size:] = 0
         
         if geo_mask:
-            self.masked_indexes[:, self.mask == 0] = 0
+            self.masked_indexes[:, self.mask_flatten == 0] = 0
             
         if normalize_label:
-            self.label.normalize_data()
+            self.label.normalize_data(self.masked_indexes)
             
         if normalize_data:
             for feature in self.features:
@@ -182,8 +183,54 @@ class FeatureDataSet():
         )))
         
         self.indexes = self.indexes[self.masked_indexes.flatten() == 1]
-        np.random.shuffle(self.indexes)
-                
+        
+        self.label_weights = np.zeros_like(self.label.data)
+        self.label_weights[self.masked_indexes == 1] = 1
+        
+        if label_weights_bins is not None:
+            count = []
+            cond = (self.masked_indexes == 1) & (self.label.data == label_weights_bins[0])
+            count_0 = cond.sum()
+            count.append(count_0)
+            
+            if len(label_weights_bins) > 1:
+                for bin_i in range(1, len(label_weights_bins)):
+                    cond = (self.masked_indexes == 1) & (self.label.data > label_weights_bins[bin_i-1]) & (self.label.data <= label_weights_bins[bin_i])
+                    count_i = cond.sum()
+                    count.append(count_i)
+                    weight = count_0 / count_i
+                    self.label_weights[cond] = weight
+                    
+            cond = (self.masked_indexes == 1) & (self.label.data > label_weights_bins[-1])
+            count_i = cond.sum()
+            count.append(count_i)
+            weight = count_0 / count_i
+            self.label_weights[cond] = weight
+            
+        if sample_bins is not None:
+            label_weights_ = np.zeros_like(self.label.data)
+            label_weights_[self.masked_indexes == 1] = 1
+            
+            count = []
+            cond = (self.masked_indexes == 1) & (self.label.data == sample_bins[0])
+            count_0 = cond.sum()
+            count.append(count_0)
+            
+            if len(sample_bins) > 1:
+                for bin_i in range(1, len(sample_bins)):
+                    cond = (self.masked_indexes == 1) & (self.label.data > sample_bins[bin_i-1]) & (self.label.data <= sample_bins[bin_i])
+                    count_i = cond.sum()
+                    count.append(count_i)
+                    weight = count_0 / count_i
+                    label_weights_[cond] = weight
+                    
+            cond = (self.masked_indexes == 1) & (self.label.data > sample_bins[-1])
+            count_i = cond.sum()
+            count.append(count_i)
+            weight = count_0 / count_i
+            label_weights_[cond] = weight
+            
+            self.sample_weights = label_weights_[self.masked_indexes == 1]
                 
     # @property
     # def valid_indexes(self):
@@ -195,7 +242,8 @@ class FeatureDataSet():
     def get_data(self, index):
         lag_i, vector_i = self.indexes[index]
         label = np.array([self.label.data[lag_i, vector_i]])
-        weight = self.mask[vector_i]
+        #weight = self.mask_flatten[vector_i]
+        weight = self.label_weights[lag_i, vector_i]
         data = {}
         for feature in self.features:
             data[feature.name] = feature.get_data(lag_i, vector_i)
