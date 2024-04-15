@@ -579,7 +579,7 @@ def evaluate_results(reference, predictions, mask, bins = [0, 100], run_name = '
     
     return mse, mae, norm_mse, norm_mae, mse__dict, mae__dict
 
-def generate_images(true_results, predict_results, mask, percentile = None):
+def generate_images(true_results, predict_results, mask, percentile = None, name = 'comparison'):
     """
     This function generates animated comparison images between true and predicted results for each lag,
     with optional clipping based on percentiles.
@@ -653,7 +653,7 @@ def generate_images(true_results, predict_results, mask, percentile = None):
             writer = animation.PillowWriter(fps=1,
                                             metadata=dict(artist='Me'),
                                             bitrate=1800)
-            temp_file = Path(tmp_dir) / f'comparison_{lag_i}.gif'
+            temp_file = Path(tmp_dir) / f'{name}_{lag_i}.gif'
             anim.save(temp_file, writer=writer)
             
             mlflow.log_artifact(temp_file, f'images_({percentile})')
@@ -859,56 +859,6 @@ def evaluate_metric(true_results, predict_results, mask, metric, normalize = Fal
     
     return metric(true_results_flatten, predict_results_flatten)
 
-def integrated_gradients_old(model, dataloader, device, run_name):
-    model = model.to(device)
-    model.eval()
-    x, y, weight, lag_i, vec_i = next(iter(dataloader))
-    y_labels = []
-    for k in x.keys():
-        for b in range(x[k].shape[1]):
-            y_labels.append(f'{k}_{b}')
-    sample = model.prepare_input(x)
-    ig = IntegratedGradients(model)
-    pbar = tqdm(iter(dataloader), desc = 'Evaluating Integrated Gradients')
-    fig = plt.figure(figsize=(8, 12))
-    plt.axvline(x = 0, color = 'black', linewidth = 2)
-    plt.axvline(x = -0.8, linestyle = '--', color = 'black')
-    plt.axvline(x = -0.6, linestyle = '--', color = 'black')
-    plt.axvline(x = -0.4, linestyle = '--', color = 'black')
-    plt.axvline(x = -0.2, linestyle = '--', color = 'black')
-    plt.axvline(x = 0.2, linestyle = '--', color = 'black')
-    plt.axvline(x = 0.4, linestyle = '--', color = 'black')
-    plt.axvline(x = 0.6, linestyle = '--', color = 'black')
-    plt.axvline(x = 0.8, linestyle = '--', color = 'black')
-    for data in pbar:
-        x, y, weight, lag_i, vec_i = data
-        x = model.prepare_input(x).to(device)
-        x.requires_grad = True
-        model.zero_grad()
-        tensor_attributes = ig.attribute(x, ).detach().cpu()
-        
-        scatter_y = repeat(np.arange(sample.shape[1]), 'f -> n f', n = tensor_attributes.shape[0])
-        
-        plt.scatter(
-            tensor_attributes, 
-            scatter_y, 
-            c = tensor_attributes, 
-            cmap = 'jet',
-            norm = 'linear',
-            vmin = -1,
-            vmax = 1)
-        
-    plt.xlim(-1,1)
-    plt.yticks(range(len(y_labels)), y_labels)
-    plt.xticks(np.linspace(-1, 1, 11))
-    plt.suptitle('Integrate Gradients', fontsize=24)
-    plt.xlabel('Integrated Gradients Value', fontsize = 18)
-    plt.ylabel('Feature', fontsize = 18)
-    fig.tight_layout()
-    mlflow.log_figure(fig, f'figures/ig_{run_name}.png')
-    #plt.savefig('test.png', bbox_inches=Bbox([[-1,0],fig.get_size_inches()]))
-    plt.close(fig)
-
 def integrated_gradients(model, dataloader, device, run_name):
     model = model.to(device)
     model.eval()
@@ -968,3 +918,5 @@ def integrated_gradients(model, dataloader, device, run_name):
     #plt.savefig('test.png')
     plt.close(fig)
         
+def spacially_explicity(true_results, predict_results, mask, kernel):
+    pass
