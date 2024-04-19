@@ -1,2 +1,4 @@
-./run.sh transformer_features_2
-./run.sh mlp_features_2
+python validate.py --reference data/validate/reference.tif --predictions data/validate/transformer_features.tif --mask data/tiff/mask.tif --output data/validate/validate_0.gpkg --output_figures data/validate/figures_0 --max_cells 9 --threshold 0 --cell_size 25000 
+python validate.py --reference data/validate/reference.tif --predictions data/validate/transformer_features.tif --mask data/tiff/mask.tif --output data/validate/validate_05.gpkg --output_figures data/validate/figures_0_5 --max_cells 9 --threshold 0.5 --cell_size 25000 
+python validate.py --reference data/validate/reference.tif --predictions data/validate/transformer_features.tif --mask data/tiff/mask.tif --output data/validate/validate._10gpkg --output_figures data/validate/figures_1_0 --max_cells 9 --threshold 1 --cell_size 25000 
+python validate.py --reference data/validate/reference.tif --predictions data/validate/transformer_features.tif --mask data/tiff/mask.tif --output data/validate/validate._20gpkg --output_figures data/validate/figures_2_0 --max_cells 9 --threshold 2 --cell_size 25000 

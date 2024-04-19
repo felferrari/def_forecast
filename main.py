@@ -12,8 +12,10 @@ from utils.ops import load_ml_image, load_sb_image, generate_images, generate_me
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import features 
 from einops import rearrange
-import hydra
-from omegaconf import DictConfig
+from rioxarray import open_rasterio
+from rioxarray.merge import merge_arrays
+import geopandas as gpd
+
 
 parser = argparse.ArgumentParser()
 
@@ -209,7 +211,6 @@ def evaluate(run_name):
                 'norm_mae': norm_mae,
                 
             })
-        
 
             
 if __name__ == '__main__':

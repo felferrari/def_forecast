@@ -13,6 +13,7 @@ class PERIOD(Enum):
 #PATHS
 base_data_path = Path(r'/home/felferrari/projects/def_forecast/data')
 mask_path = base_data_path / r'tiff/mask.tif'
+coordinates_shp_path = base_data_path / 'shp/coordinates.shp'
 
 #features
 features = {
