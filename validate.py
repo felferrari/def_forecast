@@ -7,6 +7,9 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from shutil import rmtree
 from shapely.geometry import box
+from rasterio.enums import Resampling
+from skimage.measure import block_reduce
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 
@@ -31,12 +34,14 @@ def main():
     
     threshold = args.threshold
     cell_size = args.cell_size
+    max_cells = args.max_cells
     output_file = args.output
     output_file.unlink(missing_ok=True)
     output_figures = args.output_figures
     if output_figures.exists():
         rmtree(output_figures)
     output_figures.mkdir()
+    
     
     #Construct the base geopandas    
     x, y = reference.x, reference.y
@@ -60,156 +65,127 @@ def main():
         biweeks.append(f'PREV{d:02d}{m:02d}{y:02d}')
         dates.append(f'{d:02d}-{m:02d}-{y:02d}')
         pred_gpd[f'PREV{d:02d}{m:02d}{y:02d}'] = predictions.values[i].flatten()
-        ref_gpd[f'PREV{d:02d}{m:02d}{y:02d}'] = reference.values[i].flatten()
+        ref_gpd[f'REF{d:02d}{m:02d}{y:02d}'] = reference.values[i].flatten()
     
     pred_gpd = pred_gpd.drop(pred_gpd[pred_gpd['mask'] == 0].index)
     ref_gpd = ref_gpd.drop(ref_gpd[ref_gpd['mask'] == 0].index)
     pred_gpd.to_file(output_file, layer = 'predictions', driver="GPKG")
+    ref_gpd.to_file(output_file, layer = 'reference', driver="GPKG")
     
-    base_gpd = base_gpd.drop(base_gpd[base_gpd['mask'] == 0].index)
-    #evaluating the multiresolution metrics
-    error_abs_cells = []
-    error_rel_cells = []
-    similarity_cells = []
-    for n_cells in range(1, args.max_cells+1):
-        similarity_gdp = base_gpd.copy()
-        error_abs_gpd = base_gpd.copy()
-        error_rel_gpd = base_gpd.copy()
-        for idx, cell in tqdm(base_gpd.iterrows(), total = len(base_gpd), desc = f'Evaluating Cell Size {n_cells}', mininterval=0.5):
-            #window = cell.geometry.centroid.buffer(cell_size*n_cells+1, cap_style=3)
-            centroid = cell.geometry.centroid
-            xmin, ymin = centroid.x, centroid.y
-            
-            window = box(
-                xmin,
-                ymin,
-                xmin + 25000 * (n_cells-1),
-                ymin + 25000 * (n_cells-1),
-            )
-            
-            pred_neighbors = pred_gpd[pred_gpd.geometry.intersects(window)]
-            ref_neighbors = ref_gpd[ref_gpd.geometry.intersects(window)]
-            
-            for biweek in biweeks:
-                error_abs = (pred_neighbors[biweek] - ref_neighbors[biweek]).abs()  # Diferenças absolutas (com sinal)
-                error_rel = np.abs(error_abs / ref_neighbors[biweek]) * 100  # Diferenças percentuais
-                
-                simil_count = np.sum(error_rel <= threshold)
-                simil_count += np.isnan(error_rel).sum()
-                total_neighbors = len(pred_neighbors)
-                similarity_percentage = (simil_count / total_neighbors) * 100
-                
-                avg_percent_diffs = error_rel.mean()
-                if np.isnan(avg_percent_diffs):
-                    avg_percent_diffs = 0
-                
-                error_rel_gpd.at[idx, biweek] = error_abs.mean()
-                error_abs_gpd.at[idx, biweek] = avg_percent_diffs
-                similarity_gdp.at[idx, biweek] = similarity_percentage
-        
-        error_abs_gpd.to_file(output_file, layer = f'avg_diff_abs_perc_{n_cells}', driver="GPKG")
-        error_rel_gpd.to_file(output_file, layer = f'avg_diff_abs_{n_cells}', driver="GPKG")
-        similarity_gdp.to_file(output_file, layer = f'similarity_{n_cells}', driver="GPKG")
-        
-        error_abs_gpd.replace([np.inf, -np.inf], np.nan, inplace=True)
-        
-        error_abs_biweeks = []
-        error_rel_biweeks = []
-        similarity_biweeks = []
-        for biweek in tqdm(biweeks, desc=f'Generating figures for Cell size {n_cells}', mininterval=0.5):
-            error_abs_biweeks.append(error_rel_gpd[biweek].mean())
-            error_rel_biweeks.append(error_abs_gpd[biweek].mean())
-            similarity_biweeks.append(similarity_gdp[biweek].mean())
-            
-            fig, ax = plt.subplots(1,1,figsize=(12,8))
-            error_rel_gpd.plot(ax = ax, column=biweek, legend=True, legend_kwds={"label": "Absolute Error"})
-            plt.axis("off")
-            plt.title(f'Absolute Error ({biweek[4:]})')
-            plt.savefig(output_figures/f'diff_abs_{n_cells}_{biweek[4:]}.png')
-            plt.close(fig)
-            
-            fig, ax = plt.subplots(1,1,figsize=(12,8))
-            error_abs_gpd.plot(ax = ax, column=biweek, legend=True, legend_kwds={"label": "Percentual Error"}, missing_kwds={"color": "lightgrey"}, vmin = 0, vmax = 100)
-            plt.axis("off")
-            plt.title(f'Percentual Error ({biweek[4:]})')
-            plt.savefig(output_figures/f'diff_rel_{n_cells}_{biweek[4:]}.png')
-            plt.close(fig)
-            
-            fig, ax = plt.subplots(1,1,figsize=(12,8))
-            similarity_gdp.plot(ax = ax, column=biweek, legend=True, legend_kwds={"label": "Similarity"})
-            plt.axis("off")
-            plt.title(f'Similarity ({biweek[4:]})  (threshold = {threshold}%)')
-            plt.savefig(output_figures/f'similarity_{n_cells}_{biweek[4:]}.png')
-            plt.close(fig)
-            
-        fig, ax = plt.subplots(1,1,figsize=(16,5))
-        plt.bar(dates, error_abs_biweeks)
-        plt.title(f'Absolute Error')
-        plt.ylabel('Average Absolute Error')
-        plt.xlabel('Biweek')
-        plt.xticks(rotation=315)
-        plt.setp(ax.xaxis.get_majorticklabels(), ha='left')
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(14)
-        fig.tight_layout()
-        plt.savefig(output_figures/f'time_diff_abs_{n_cells}.png')
-        plt.close(fig)
-        
-        fig, ax = plt.subplots(1,1,figsize=(16,5))
-        plt.bar(dates, error_rel_biweeks)
-        plt.title(f'Percentual Error')
-        plt.ylabel('Average Percentual Error (Log)')
-        plt.yscale('log')
-        plt.xlabel('Biweek')
-        plt.xticks(rotation=315)
-        plt.setp(ax.xaxis.get_majorticklabels(), ha='left')
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(14)
-        fig.tight_layout()
-        plt.savefig(output_figures/f'time_diff_rel_{n_cells}.png')
-        plt.close(fig)
-        
-        fig, ax = plt.subplots(1,1,figsize=(16,5))
-        plt.bar(dates, error_abs_biweeks)
-        plt.title(f'Similarity (threshold = {threshold}%)')
-        plt.ylabel('Average Similarity')
-        plt.xlabel('Biweek')
-        plt.xticks(rotation=315)
-        plt.setp(ax.xaxis.get_majorticklabels(), ha='left')
-        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-            item.set_fontsize(14)
-        fig.tight_layout()
-        plt.savefig(output_figures/f'time_similarity_{n_cells}.png')
-        plt.close(fig)
-        
-        error_abs_cells.append(np.array(error_abs_biweeks).mean())
-        error_rel_cells.append(np.array(error_rel_biweeks).mean())
-        similarity_cells.append(np.array(similarity_biweeks).mean())
-        
-    fig = plt.figure(figsize=(12,8))
-    #plt.bar(range(args.max_cells+1), average_diff_abs_cells)
-    plt.plot(range(1, args.max_cells+1), error_abs_cells)
-    plt.title(f'Absolute Error')
-    plt.ylabel('Average Absolute Error')
-    plt.xlabel('Cells Size')
-    plt.savefig(output_figures/f'size_diff_abs.png')
-    plt.close(fig)
+    predictions.values[predictions.values < 0.01] = 0
     
-    fig = plt.figure(figsize=(12,8))
-    plt.plot(range(1, args.max_cells+1), error_rel_cells)
-    plt.title(f'Percentual Error')
-    plt.ylabel(f'Average Percentual Error')
-    plt.xlabel('Cells Size')
-    plt.savefig(output_figures/f'size_diff_rel.png')
-    plt.close(fig)
+    absolute_error = predictions - reference
+    relative_error = absolute_error / reference
     
-    fig = plt.figure(figsize=(12,8))
-    plt.plot(range(1, args.max_cells+1), similarity_cells)
-    plt.title(f'Similarity (threshold = {threshold}%)')
-    plt.ylabel(f'Average Similarity')
-    plt.xlabel('Cells Size')
-    plt.savefig(output_figures/f'size_similarity.png')
-    plt.close(fig)
+    mask_ = np.repeat(mask, 48, axis=0)
+    
+    absolute_error.values[mask_.values == 0] = 0
+    relative_error.values[mask_.values == 0] = 0
+    
+    absolute_error.rio.to_raster(output_figures / 'absolute_error.tif')
+    relative_error.rio.to_raster(output_figures / 'relative_error.tif')
+    
+    similarity = np.abs(relative_error * 100) < threshold
+    similarity.values = similarity.values.astype(np.float32)
+    similarity.rio.to_raster(output_figures / 'similarity.tif')
+    
+    #Consider similarity = 0 when predictions ==0 and reference == 0
+    
+    similarity.values[mask_.values == 0] = np.nan
+    similarity.rio.write_nodata(np.nan, inplace = True)
+    similarity_zeroin = similarity.copy()
+    similarity_zeroin.values[np.logical_and(predictions.values ==0, reference.values == 0)] = 1
+    similarity_zeroin.rio.write_nodata(np.nan, inplace = True)
+    similarity_zeroin.rio.to_raster(output_figures / 'similarity_zeroin.tif')
+    
+    means = []
+    means_nonzeros = []
+    
+    for downscale_factor in range(1, max_cells+ 1):
+        
+        similarity_sampled = similarity_zeroin.rio.reproject(
+            similarity_zeroin.rio.crs,
+            resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
+            resampling=Resampling.average,
+        )
+
+        similarity_sampled.rio.to_raster(output_figures / f'similarity_r{downscale_factor}.tif')
+        
+        means.append(100*np.nanmean(similarity_sampled, axis=(1,2)))
+        
+        similarity_sampled = similarity.rio.reproject(
+            similarity.rio.crs,
+            resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
+            resampling=Resampling.average,
+        )
+
+        similarity_sampled.rio.to_raster(output_figures / f'similarity_non_zeros_r{downscale_factor}.tif')
+        
+        means_nonzeros.append(100*np.nanmean(similarity_sampled, axis=(1,2)))
+        
+    means = np.stack(means)
+    df = pd.DataFrame(
+        data = means
+    )
+    df.to_excel(output_figures / 'results.xlsx')
+    
+    means_nonzeros = np.stack(means_nonzeros)
+    df = pd.DataFrame(
+        data = means_nonzeros
+    )
+    df.to_excel(output_figures / 'results_nonzeros.xlsx')
     
 if __name__ == '__main__':
+    
+    
     main()
+    
+
+        # minx, miny, maxx, maxy = similarity_sampled.rio.bounds()
+    
+    # add_x = (downscale_factor - (similarity_zeroin.rio.width % downscale_factor)) % downscale_factor
+    # add_y = (downscale_factor - (similarity_zeroin.rio.height % downscale_factor)) % downscale_factor
+    
+    # #add_x += downscale_factor
+    # #add_y += downscale_factor
+    
+    # maxx += cell_size * add_x
+    # maxy += cell_size * add_y
+    
+    # similarity_sampled = similarity_sampled.rio.pad_box(
+    #     minx = minx,
+    #     miny = miny,
+    #     maxx= maxx,
+    #     maxy= maxy,
+    #     constant_values = np.nan
+    # )
+    
+    # new_width = similarity_sampled.rio.width // downscale_factor
+    # new_height = similarity_sampled.rio.height // downscale_factor
+    
+    # a = block_reduce(
+    #     similarity_sampled.values, 
+    #     block_size=(1, downscale_factor, downscale_factor)
+    #     )
+
+    # similarity_sampled = similarity_sampled.rio.reproject(
+    #     similarity_sampled.rio.crs,
+    #     shape=(new_height, new_width),
+    #     resampling=Resampling.average,
+    # )
+    
+    # similarity_sampled.values = block_reduce(
+    #     similarity.values,
+    #     (1, downscale_factor, downscale_factor),
+    #     np.nanmean
+    # )
+    
+        # mask_sampled =  similarity_zeroin.copy()
+        # mask_sampled.values = mask_.values.astype(np.float32)
+        # mask_sampled = mask_sampled.rio.reproject(
+        #     similarity_zeroin.rio.crs,
+        #     resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
+        #     resampling=Resampling.sum,
+        # )
+        # similarity_sampled.values = similarity_sampled.values / mask_sampled.values
+        
