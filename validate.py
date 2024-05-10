@@ -96,44 +96,13 @@ def main():
     similarity_zeroin.rio.to_raster(output_figures / f'similarity_zeroin_th{threshold}.tif')
     
     
-    corrected_relative_error = relative_error.copy().values
-    corrected_relative_error[np.logical_and(predictions.values ==0, reference.values == 0)] = 0
-    corrected_relative_error = corrected_relative_error.flatten()
-    corrected_relative_error = corrected_relative_error[mask_.values.flatten() == 1]
-    corrected_relative_error = corrected_relative_error[corrected_relative_error != np.inf]
-    corrected_relative_error = 100*corrected_relative_error
-    corrected_relative_error = np.clip(corrected_relative_error, 0, 1000)
-    
-    fig, ax = plt.subplots()
-    plt.hist(corrected_relative_error, bins = 50, log=True)
-    plt.xlabel('%')
-    plt.ylabel('Count')
-    fig.savefig(output_figures / f'relative_errors_hist_0.png')
-    plt.close(fig)
-    
-    corrected_relative_error = np.clip(corrected_relative_error, 0, 100)
-    fig, ax = plt.subplots()
-    plt.hist(corrected_relative_error, bins = 50, log=True)
-    plt.xlabel('%')
-    plt.ylabel('Count')
-    fig.savefig(output_figures / f'relative_errors_hist_1.png')
-    plt.close(fig)
-    
-    corrected_relative_error = np.clip(corrected_relative_error, 0, 10)
-    fig, ax = plt.subplots()
-    plt.hist(corrected_relative_error, bins = 50, log=True)
-    plt.xlabel('%')
-    plt.ylabel('Count')
-    fig.savefig(output_figures / f'relative_errors_hist_2.png')
-    plt.close(fig)
-    
-    corrected_relative_error = np.clip(corrected_relative_error, 0, 1)
-    fig, ax = plt.subplots()
-    plt.hist(corrected_relative_error, bins = 50, log=True)
-    plt.xlabel('%')
-    plt.ylabel('Count')
-    fig.savefig(output_figures / f'relative_errors_hist_3.png')
-    plt.close(fig)
+    # corrected_relative_error = relative_error.copy().values
+    # corrected_relative_error[np.logical_and(predictions.values ==0, reference.values == 0)] = 0
+    # corrected_relative_error = corrected_relative_error.flatten()
+    # corrected_relative_error = corrected_relative_error[mask_.values.flatten() == 1]
+    # corrected_relative_error = corrected_relative_error[corrected_relative_error != np.inf]
+    # corrected_relative_error = 100*corrected_relative_error
+    # corrected_relative_error = np.clip(corrected_relative_error, 0, 1000)
     
     # priority cells
     shape = reference.shape[1:]
@@ -243,52 +212,3 @@ if __name__ == '__main__':
     
     main()
     
-
-        # minx, miny, maxx, maxy = similarity_sampled.rio.bounds()
-    
-    # add_x = (downscale_factor - (similarity_zeroin.rio.width % downscale_factor)) % downscale_factor
-    # add_y = (downscale_factor - (similarity_zeroin.rio.height % downscale_factor)) % downscale_factor
-    
-    # #add_x += downscale_factor
-    # #add_y += downscale_factor
-    
-    # maxx += cell_size * add_x
-    # maxy += cell_size * add_y
-    
-    # similarity_sampled = similarity_sampled.rio.pad_box(
-    #     minx = minx,
-    #     miny = miny,
-    #     maxx= maxx,
-    #     maxy= maxy,
-    #     constant_values = np.nan
-    # )
-    
-    # new_width = similarity_sampled.rio.width // downscale_factor
-    # new_height = similarity_sampled.rio.height // downscale_factor
-    
-    # a = block_reduce(
-    #     similarity_sampled.values, 
-    #     block_size=(1, downscale_factor, downscale_factor)
-    #     )
-
-    # similarity_sampled = similarity_sampled.rio.reproject(
-    #     similarity_sampled.rio.crs,
-    #     shape=(new_height, new_width),
-    #     resampling=Resampling.average,
-    # )
-    
-    # similarity_sampled.values = block_reduce(
-    #     similarity.values,
-    #     (1, downscale_factor, downscale_factor),
-    #     np.nanmean
-    # )
-    
-        # mask_sampled =  similarity_zeroin.copy()
-        # mask_sampled.values = mask_.values.astype(np.float32)
-        # mask_sampled = mask_sampled.rio.reproject(
-        #     similarity_zeroin.rio.crs,
-        #     resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
-        #     resampling=Resampling.sum,
-        # )
-        # similarity_sampled.values = similarity_sampled.values / mask_sampled.values
-        
