@@ -3,6 +3,8 @@ captum
 matplotlib
 fiona
 shapely
+rioxarray
+rasterio
 pyarrow 
 pandas
 openpyxl

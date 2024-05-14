@@ -41,169 +41,99 @@ def main():
     
     
     #Construct the base geopandas    
-    x, y = reference.x, reference.y
-    x, y = np.meshgrid(x, y)
-    x, y = x.flatten(), y.flatten()
-    geo = gpd.GeoSeries.from_xy(x = x, y=y)
-    geo = geo.buffer(cell_size/2.0, cap_style= 3)
-    base_gpd = gpd.GeoDataFrame(geometry=geo, crs = reference.rio.crs)
-    base_gpd['mask'] = mask.values.flatten()
+    # x, y = reference.x, reference.y
+    # x, y = np.meshgrid(x, y)
+    # x, y = x.flatten(), y.flatten()
+    # geo = gpd.GeoSeries.from_xy(x = x, y=y)
+    # geo = geo.buffer(cell_size/2.0, cap_style= 3)
+    # base_gpd = gpd.GeoDataFrame(geometry=geo, crs = reference.rio.crs)
+    # base_gpd['mask'] = mask.values.flatten()
     
-    #Create the perdictions shapefile    
-    pred_gpd = base_gpd.copy()
-    ref_gpd = base_gpd.copy()
-    y0, m0, d0 = 22, 1, 1
-    biweeks = []
-    dates = []
-    for i in range(48):
-        y = y0 + i // 24
-        m = m0 + ((i // 2) % 12)
-        d = d0 + 15 * (i % 2)
-        biweeks.append(f'PREV{d:02d}{m:02d}{y:02d}')
-        dates.append(f'{d:02d}-{m:02d}-{y:02d}')
-        pred_gpd[f'PREV{d:02d}{m:02d}{y:02d}'] = predictions.values[i].flatten()
-        ref_gpd[f'REF{d:02d}{m:02d}{y:02d}'] = reference.values[i].flatten()
+    # #Create the perdictions shapefile    
+    # pred_gpd = base_gpd.copy()
+    # ref_gpd = base_gpd.copy()
+    # y0, m0, d0 = 22, 1, 1
+    # biweeks = []
+    # dates = []
+    # for i in range(48):
+    #     y = y0 + i // 24
+    #     m = m0 + ((i // 2) % 12)
+    #     d = d0 + 15 * (i % 2)
+    #     biweeks.append(f'PREV{d:02d}{m:02d}{y:02d}')
+    #     dates.append(f'{d:02d}-{m:02d}-{y:02d}')
+    #     pred_gpd[f'PREV{d:02d}{m:02d}{y:02d}'] = predictions.values[i].flatten()
+    #     ref_gpd[f'REF{d:02d}{m:02d}{y:02d}'] = reference.values[i].flatten()
     
-    pred_gpd = pred_gpd.drop(pred_gpd[pred_gpd['mask'] == 0].index)
-    ref_gpd = ref_gpd.drop(ref_gpd[ref_gpd['mask'] == 0].index)
-    pred_gpd.to_file(output_file, layer = 'predictions', driver="GPKG")
-    ref_gpd.to_file(output_file, layer = 'reference', driver="GPKG")
+    # pred_gpd = pred_gpd.drop(pred_gpd[pred_gpd['mask'] == 0].index)
+    # ref_gpd = ref_gpd.drop(ref_gpd[ref_gpd['mask'] == 0].index)
+    # pred_gpd.to_file(output_file, layer = 'predictions', driver="GPKG")
+    # ref_gpd.to_file(output_file, layer = 'reference', driver="GPKG")
     
-    #predictions.values[predictions.values < 0.01] = 0
+    mask_48 = reference.copy()
+    mask_48.values = np.repeat(mask, 48, axis=0)
     
-    absolute_error = predictions - reference
-    relative_error = np.abs(absolute_error) / reference
+    non_zeros = predictions.copy()
+    non_zeros.values = np.logical_or(
+        predictions.values > 0,
+        reference.values > 0,
+    ).astype(np.float32)
     
-    mask_ = np.repeat(mask, 48, axis=0)
+    norm_predictions = predictions.copy()
+    norm_predictions.values[mask_48==0] = np.nan
+    pred_mins, pred_maxs = np.nanmin(norm_predictions.values, axis=(1,2), keepdims= True), np.nanmax(norm_predictions.values, axis=(1,2), keepdims= True)
+    norm_predictions.values = (norm_predictions.values - pred_mins) / (pred_maxs - pred_mins)
+
+    norm_reference = reference.copy()
+    norm_reference.values[mask_48==0] = np.nan
+    ref_mins, ref_maxs = np.nanmin(norm_reference.values, axis=(1,2), keepdims= True), np.nanmax(norm_reference.values, axis=(1,2), keepdims= True)
+    norm_reference.values = (norm_reference.values - ref_mins) / (ref_maxs - ref_mins)
     
-    absolute_error.values[mask_.values == 0] = 0
-    relative_error.values[mask_.values == 0] = 0
+    absolute_error = norm_predictions.copy()
+    absolute_error.values = norm_predictions.values - norm_reference.values
+    absolute_error.rio.write_nodata(np.nan, inplace = True)
     
-    absolute_error.rio.to_raster(output_figures / 'absolute_error.tif')
-    relative_error.rio.to_raster(output_figures / 'relative_error.tif')
+    absolute_error.rio.to_raster(output_figures / f'absolute_error.tif')
+    norm_predictions.rio.to_raster(output_figures / f'predictions.tif')
+    norm_reference.rio.to_raster(output_figures / f'reference.tif')
     
-    similarity = (relative_error * 100) < threshold
-    similarity.values = similarity.values.astype(np.float32)
-    similarity.values[mask_.values == 0] = np.nan
-    similarity.rio.write_nodata(np.nan, inplace = True)
-    similarity.rio.to_raster(output_figures / f'similarity_th{threshold}.tif')
-    
-    #Consider similarity = 0 when predictions ==0 and reference == 0
-    similarity_zeroin = similarity.copy()
-    similarity_zeroin.values[np.logical_and(predictions.values ==0, reference.values == 0)] = 1
-    similarity_zeroin.values[mask_.values == 0] = np.nan
-    similarity_zeroin.rio.write_nodata(np.nan, inplace = True)
-    similarity_zeroin.rio.to_raster(output_figures / f'similarity_zeroin_th{threshold}.tif')
-    
-    
-    # corrected_relative_error = relative_error.copy().values
-    # corrected_relative_error[np.logical_and(predictions.values ==0, reference.values == 0)] = 0
-    # corrected_relative_error = corrected_relative_error.flatten()
-    # corrected_relative_error = corrected_relative_error[mask_.values.flatten() == 1]
-    # corrected_relative_error = corrected_relative_error[corrected_relative_error != np.inf]
-    # corrected_relative_error = 100*corrected_relative_error
-    # corrected_relative_error = np.clip(corrected_relative_error, 0, 1000)
-    
-    # priority cells
-    shape = reference.shape[1:]
-    similarity_priority = predictions.copy()
-    similarity_priority.values = np.zeros_like(similarity_priority)
-    pred_order = predictions.copy()
-    pred_order.values = np.zeros_like(pred_order)
-    ref_order = predictions.copy()
-    ref_order.values = np.zeros_like(ref_order)
-    diff_order = predictions.copy()
-    diff_order.values = np.zeros_like(diff_order)
-    for biweek in range(predictions.shape[0]):
-        pred_bw = predictions.values[biweek].flatten()
-        ref_bw = reference.values[biweek].flatten()
-        
-        pred_order_bw = np.zeros_like(pred_bw)
-        ref_order_bw = np.zeros_like(ref_bw)
-        
-        pred_order_bw[np.argsort(pred_bw)[-100:]] = (np.arange(100, 0, -1) - 1)
-        ref_order_bw[np.argsort(ref_bw)[-100:]] =  (np.arange(100, 0, -1) - 1)
-        
-        diff_bw = np.abs(pred_order_bw - ref_order_bw)
-        
-        diff_order.values[biweek] = diff_bw.reshape(shape)
-        ref_order.values[biweek] = ref_order_bw.reshape(shape)
-        pred_order.values[biweek] = pred_order_bw.reshape(shape)
-        
-        diff_bw = (diff_bw <= 10).astype(np.float32).reshape(shape)
-        similarity_priority.values[biweek] = diff_bw
-        
-    similarity_priority.values[mask_.values == 0] = np.nan
-    similarity_priority.rio.write_nodata(np.nan, inplace = True)
-    similarity_priority.rio.to_raster(output_figures / f'similarity_priority.tif')
-    
-    diff_order.values[mask_.values == 0] = np.nan
-    diff_order.rio.write_nodata(np.nan, inplace = True)
-    diff_order.rio.to_raster(output_figures / f'diff_order.tif')
-    
-    ref_order.values[mask_.values == 0] = np.nan
-    ref_order.rio.write_nodata(np.nan, inplace = True)
-    ref_order.rio.to_raster(output_figures / f'ref_order.tif')
-    
-    pred_order.values[mask_.values == 0] = np.nan
-    pred_order.rio.write_nodata(np.nan, inplace = True)
-    pred_order.rio.to_raster(output_figures / f'pred_order.tif')
-    
-    
-    means = []
-    means_nonzeros = []
-    means_priority = []
+    means_zeros_in = []
+    means_non_zeros = []
     
     for downscale_factor in range(1, max_cells+ 1):
         
-        similarity_sampled = similarity_zeroin.rio.reproject(
-            similarity_zeroin.rio.crs,
+        absolute_error_sampled = absolute_error.rio.reproject(
+            absolute_error.rio.crs,
             resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
             resampling=Resampling.average,
         )
-
-        similarity_sampled.rio.to_raster(output_figures / f'similarity_r{downscale_factor}.tif')
         
-        means.append(100*np.nanmean(similarity_sampled, axis=(1,2)))
+        means_zeros_in.append(np.nanmean(absolute_error_sampled.values, axis=(1,2)))
+        absolute_error_sampled.rio.to_raster(output_figures / f'absolute_error_zerosin_r{downscale_factor}.tif')
         
-        similarity_sampled = similarity.rio.reproject(
-            similarity.rio.crs,
+        non_zeros_sampled = non_zeros.rio.reproject(
+            non_zeros.rio.crs,
             resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
             resampling=Resampling.average,
         )
-
-        similarity_sampled.rio.to_raster(output_figures / f'similarity_non_zeros_r{downscale_factor}.tif')
         
-        means_nonzeros.append(100*np.nanmean(similarity_sampled, axis=(1,2)))
+        absolute_error_sampled.values[non_zeros_sampled.values == 0] = np.nan
+        means_non_zeros.append(np.nanmean(absolute_error_sampled.values, axis=(1,2)))
         
-        similarity_sampled = similarity_priority.rio.reproject(
-            similarity_priority.rio.crs,
-            resolution=(downscale_factor*cell_size, downscale_factor*cell_size),
-            resampling=Resampling.average,
-        )
-
-        similarity_sampled.rio.to_raster(output_figures / f'similarity_priority_r{downscale_factor}.tif')
         
-        means_priority.append(100*np.nanmean(similarity_sampled, axis=(1,2)))
         
-    means = np.stack(means)
+    means_zeros_in = np.stack(means_zeros_in)
     df = pd.DataFrame(
-        data = means
+        data = means_zeros_in
     )
-    df.to_excel(output_figures / 'results.xlsx')
+    df.to_excel(output_figures / 'zeros_in_results.xlsx')
     
-    means_nonzeros = np.stack(means_nonzeros)
+    means_non_zeros = np.stack(means_non_zeros)
     df = pd.DataFrame(
-        data = means_nonzeros
+        data = means_non_zeros
     )
-    df.to_excel(output_figures / 'results_nonzeros.xlsx')
+    df.to_excel(output_figures / 'non_zeros_results.xlsx')
     
-    means_priority = np.stack(means_priority)
-    df = pd.DataFrame(
-        data = means_priority
-    )
-    df.to_excel(output_figures / 'results_priority.xlsx')
-    
+   
     
     
     
