@@ -13,10 +13,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--reference', type = Path)
 parser.add_argument('--predictions', type = Path)
 parser.add_argument('--mask', type = Path)
-parser.add_argument('--output', type = Path)
+#parser.add_argument('--output', type = Path)
 parser.add_argument('--output_figures', type = Path)
-parser.add_argument('--max_cells', type = int)
-parser.add_argument('--threshold', type = float)
+#parser.add_argument('--max_cells', type = int)
+#parser.add_argument('--threshold', type = float)
 parser.add_argument('--cell_size', type = float)
 
 args = parser.parse_args()
@@ -29,11 +29,11 @@ def main():
     
     assert reference.shape == predictions.shape, 'Reference and Predictions must have the same dimensions'
     
-    threshold = args.threshold
+    # threshold = args.threshold
     cell_size = args.cell_size
-    max_cells = args.max_cells
-    output_file = args.output
-    output_file.unlink(missing_ok=True)
+    max_cells = 10 #args.max_cells
+    # output_file = args.output
+    # output_file.unlink(missing_ok=True)
     output_figures = args.output_figures
     if output_figures.exists():
         rmtree(output_figures)
@@ -132,10 +132,6 @@ def main():
         data = means_non_zeros
     )
     df.to_excel(output_figures / 'non_zeros_results.xlsx')
-    
-   
-    
-    
     
 if __name__ == '__main__':
     
