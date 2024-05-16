@@ -165,6 +165,9 @@ def main():
         predictions_sampled = normalize(predictions_sampled)
         reference_sampled = normalize(reference_sampled)
         
+        predictions_sampled.rio.to_raster(output_figures / f'prediction_d{downscale_factor}.tif')
+        reference_sampled.rio.to_raster(output_figures / f'reference_d{downscale_factor}.tif')
+        
         diff_sampled = predictions_sampled.copy()
         diff_sampled.values = predictions_sampled.values - reference_sampled.values
         diff_sampled.rio.to_raster(output_figures / f'error_d{downscale_factor}.tif')

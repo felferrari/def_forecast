@@ -73,7 +73,7 @@ features = {
         'first_lag': 0 #in quarters
     },
     'DryMonths':{
-        'path_to_file' : base_data_path / 'tiff/DryMonths_bd_amz_25km.tif',
+        'path_to_file' : base_data_path / 'tiff/DryMonths.tif',
         'period': PERIOD.STATIC
     },
     'Coordinates':{
@@ -81,15 +81,15 @@ features = {
         'period': PERIOD.STATIC
     },
     'Distbd':{
-        'path_to_file' : base_data_path / 'tiff/Dist_bd_amz_25km.tif',
+        'path_to_file' : base_data_path / 'tiff/Dist.tif',
         'period': PERIOD.STATIC
     },
     'Dvd':{
-        'path_to_file' : base_data_path / 'tiff/Dvd_bd_amz_25km.tif',
+        'path_to_file' : base_data_path / 'tiff/Dvd.tif',
         'period': PERIOD.STATIC
     },
     'EF':{
-        'path_to_file' : base_data_path / 'tiff/EF_bd_amz_25km.tif',
+        'path_to_file' : base_data_path / 'tiff/EF.tif',
         'period': PERIOD.STATIC
     }
 }
