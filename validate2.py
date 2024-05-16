@@ -2,12 +2,9 @@ import argparse
 from pathlib import Path
 from rioxarray import open_rasterio
 import numpy as np
-import geopandas as gpd
-import matplotlib.pyplot as plt
 from shutil import rmtree
 from rasterio.enums import Resampling
 import pandas as pd
-from einops import rearrange
 
 parser = argparse.ArgumentParser()
 
@@ -148,7 +145,7 @@ def main():
     real_reference.values[mask_3d==0] = np.nan
     real_reference.rio.write_nodata(np.nan, inplace = True)
     
-    means_diff, means_abs_diff, means_nonzeros_diff, means_abs_nonzeros_diff, means_priority, means_abs_priority = [], [], [], [], [], []
+    means_diff, means_abs_diff, means_nonzeros_diff, means_abs_nonzeros_diff, means_priority2, means_abs_priority = [], [], [], [], [], []
     
     for downscale_factor in range(1, max_downscale + 1):
         
@@ -234,14 +231,10 @@ def main():
         top_ks = []
         top_k_values = []
         top_k_total = []
-        max_k = 200
+        max_k = 100
         for k in range(1, max_k+1):
             top_k_predictions = top_k_classification(predictions_sampled, k)
-            top_k_predictions.values[np.isnan(predictions_sampled.values)] = np.nan
-            top_k_predictions.rio.write_nodata(np.nan, inplace = True)
             top_k_reference = top_k_classification(reference_sampled, k)
-            top_k_reference.values[np.isnan(predictions_sampled.values)] = np.nan
-            top_k_reference.rio.write_nodata(np.nan, inplace = True)
             
             matches = np.logical_and(
                 top_k_predictions.values == 1,
@@ -249,8 +242,8 @@ def main():
             )
             
             top_ks.append(k)
-            top_k_values.append(matches.sum(axis=(1,2))/(k*max_k))
-            top_k_total.append(matches.sum()/(k*max_k))
+            top_k_values.append(matches.sum(axis=(1,2))/(k))
+            top_k_total.append(matches.sum()/(k))
         
         results = pd.DataFrame(data={
             'k': top_ks,
@@ -258,14 +251,14 @@ def main():
         })
         
         results2 = pd.DataFrame(data=top_k_values)
+        means_priority2.append(list(results2.sum()/max_k))
         
-        np.stack(top_k_values, axis=0)
         
     save_means(means_diff, output_figures / 'diff_results.xlsx')
     save_means(means_abs_diff, output_figures / 'diff_abs_results.xlsx')
     save_means(means_nonzeros_diff, output_figures / 'diff_nonzeros_results.xlsx')
     save_means(means_abs_nonzeros_diff, output_figures / 'diff_abs_nonzeros_results.xlsx')
-    #save_means(means_priority, output_figures / 'priority_results.xlsx')
+    save_means(means_priority2, output_figures / 'priority2_results.xlsx')
     save_means(means_abs_priority, output_figures / 'priority_abs_results.xlsx')
         
     
