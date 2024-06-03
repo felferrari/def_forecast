@@ -9,8 +9,8 @@ class DataModule(LightningDataModule):
     def __init__(
         self,
         features_list,
-        time_0 = 24,
-        train_times = 48,
+        time_0 = 25,
+        train_times = 47,
         val_times = 48,
         test_times = 48,
         train_batch_size = 128,

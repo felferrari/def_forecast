@@ -11,87 +11,121 @@ class PERIOD(Enum):
     STATIC = 2
 
 #PATHS
-base_data_path = Path(r'/home/felferrari/projects/def_forecast/data')
-mask_path = base_data_path / r'tiff/mask.tif'
-coordinates_shp_path = base_data_path / 'shp/coordinates.shp'
+base_data_path = Path(r'/home/felferrari/projects/def_forecast/data/tiff/25k/v2')
+mask_path = base_data_path / 'mask.tif'
+# coordinates_shp_path = base_data_path / 'shp/coordinates.shp'
 
 #features
 features = {
     'ArDS':{
-        'path_to_file' : base_data_path / 'tiff/ArDS.tif',
+        'path_to_file' : base_data_path / 'ArDS.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
     'Biweekly':{
-        'path_to_file' : base_data_path / 'tiff/Biweekly.tif',
+        'path_to_file' : base_data_path / 'Biweekly.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
     'AcAr':{
-        'path_to_file' : base_data_path / 'tiff/AcAr.tif',
+        'path_to_file' : base_data_path / 'AcAr.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
     'CtDS':{
-        'path_to_file' : base_data_path / 'tiff/CtDS.tif',
+        'path_to_file' : base_data_path / 'CtDS.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
     'DeAr':{
-        'path_to_file' : base_data_path / 'tiff/DeAr.tif',
+        'path_to_file' : base_data_path / 'DeAr.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 1
     },
     'Cloud':{
-        'path_to_file' : base_data_path / 'tiff/nv.tif',
+        'path_to_file' : base_data_path / 'nv.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 14
     },
     'OcDS':{
-        'path_to_file' : base_data_path / 'tiff/OcDS.tif',
+        'path_to_file' : base_data_path / 'OcDS.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 0
     },
     'XQ':{
-        'path_to_file' : base_data_path / 'tiff/XQ.tif',
+        'path_to_file' : base_data_path / 'XQ.tif',
         'period': PERIOD.BIWEEKLY,
         'first_lag': 4
     },
+    'Flor':{
+        'path_to_file' : base_data_path / 'Flor.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
+    'A7Q':{
+        'path_to_file' : base_data_path / 'A7Q.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 24
+    },
+    'NuAI':{
+        'path_to_file' : base_data_path / 'NuAI.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
+    'DeAI':{
+        'path_to_file' : base_data_path / 'DeAI.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 1
+    },
+    'PtDG':{
+        'path_to_file' : base_data_path / 'PtDG.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
+    'PtEM':{
+        'path_to_file' : base_data_path / 'PtEM.tif',
+        'period': PERIOD.BIWEEKLY,
+        'first_lag': 0
+    },
     'XArDS':{
-        'path_to_file' : base_data_path / 'tiff/XArDS.tif',
+        'path_to_file' : base_data_path / 'XArDS.tif',
         'period': PERIOD.QUARTERLY,
         'first_lag': 4 #in quarters
     },
     'XDeDS':{
-        'path_to_file' : base_data_path / 'tiff/XDeDS.tif',
+        'path_to_file' : base_data_path / 'XDeDS.tif',
         'period': PERIOD.QUARTERLY,
         'first_lag': 4 #in quarters
     },
     'DS':{
-        'path_to_file' : base_data_path / 'tiff/DS.tif',
+        'path_to_file' : base_data_path / 'DS.tif',
         'period': PERIOD.QUARTERLY,
         'first_lag': 0 #in quarters
     },
+    'Accessability':{
+        'path_to_file' : base_data_path / 'Accessability.tif',
+        'period': PERIOD.STATIC
+    },
     'DryMonths':{
-        'path_to_file' : base_data_path / 'tiff/DryMonths.tif',
+        'path_to_file' : base_data_path / 'DryMonths.tif',
         'period': PERIOD.STATIC
     },
     'Coordinates':{
-        'path_to_file' : base_data_path / 'tiff/Coordinates.tif',
+        'path_to_file' : base_data_path / 'Coordinates.tif',
         'period': PERIOD.STATIC
     },
     'Distbd':{
-        'path_to_file' : base_data_path / 'tiff/Dist.tif',
+        'path_to_file' : base_data_path / 'Dist.tif',
         'period': PERIOD.STATIC
     },
     'Dvd':{
-        'path_to_file' : base_data_path / 'tiff/Dvd.tif',
+        'path_to_file' : base_data_path / 'Dvd.tif',
         'period': PERIOD.STATIC
     },
     'EF':{
-        'path_to_file' : base_data_path / 'tiff/EF.tif',
+        'path_to_file' : base_data_path / 'EF.tif',
         'period': PERIOD.STATIC
-    }
+    },
 }
 
 
@@ -143,7 +177,7 @@ class FeatureData:
         if self.period == PERIOD.BIWEEKLY:
             lag_0 = lag_i - self.n_prev - self.first_data_lag
             lag_l = lag_i - self.first_data_lag
-            assert lag_0 >=0 and lag_l < self.data.shape[0]
+            assert lag_0 >=0 and lag_l < self.data.shape[0], 'lag_0 >=0 and lag_l < self.data.shape[0]' + f'{self.name}'
             return self.data[lag_0:lag_l, vector_i]
         elif self.period == PERIOD.QUARTERLY:
             lag_0 = lag_i // 6 - self.n_prev - self.first_data_lag + 1

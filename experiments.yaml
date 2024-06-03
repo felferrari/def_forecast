@@ -145,6 +145,27 @@ transformer_features_2:
   parent_experiment: transformer_reg
   features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, XArDS, XDeDS, OcDS, XQ, 'Distbd_1', 'EF_0' ]
   
+transformer_features_3:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, OcDS, XQ, 'Distbd_1', 'EF_0' ]
+  
+transformer_features_4:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, XDeDS, OcDS, XQ, 'Distbd_1', 'EF_0' ]
+
+transformer_features_5:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, XArDS, OcDS, XQ, 'Distbd_1', 'EF_0' ]
+
+transformer_features_v2_25_0:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, Flor, A7Q, NuAI, DeAI, PtDG, PtEM, XArDS, XDeDS, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6', 'Accessability_0,1,2,3,4,5,6,7']
+
+transformer_features_v2_25_1:
+  parent_experiment: transformer_reg
+  features_list: [ArDS_6, Biweekly, AcAr, CtDS, DeAr, Cloud, Flor, A7Q, NuAI, DeAI, PtDG, PtEM, OcDS, XQ, DryMonths_0, 'Coordinates_0,1', 'Distbd_0,1,2,3,4', Dvd_0, 'EF_0,1,2,3,4,5,6', 'Accessability_0,1,2,3,4,5,6,7']
+
+
 transformer_reg_0:
   parent_experiment: transformer_reg
 
